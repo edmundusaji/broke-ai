@@ -5,4 +5,5 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface GeminiOutboundService {
     GeminiResponse sendToGemini(MultipartFile file, String base64EncodedImage);
+    GeminiResponse sendTextToGemini(String text);
 }

@@ -36,15 +36,32 @@ public class ExpenseServiceImpl implements ExpenseService {
         if (aiResponse == null || aiResponse.getTotal() == null) {
             throw new RuntimeException("⛔ [EXPENSE SERVICE] Failed to process receipt");
         }
-
         System.out.println("✅ [EXPENSE SERVICE] Extract Completed: " + aiResponse.getMerchant());
 
-        Transaction transaction = mapToEntity(aiResponse);
+        Transaction transaction = mapToEntity(aiResponse, "RECEIPT");
 
         // Save to PostgreSQL
         Transaction savedTransaction = transactionRepository.save(transaction);
-
         System.out.println("💾 [EXPENSE SERVICE] Data successfully saved with ID : " + savedTransaction.getId());
+
+        return savedTransaction;
+    }
+
+    @Override
+    public Transaction saveNotification(String notification) {
+        System.out.println("🚀 [EXPENSE SERVICE] Memulai proses Notifikasi...");
+
+        AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
+
+        if (aiResponse == null || aiResponse.getTotal() == null) {
+            throw new RuntimeException("Gagal mengekstrak data penting dari Notifikasi.");
+        }
+        System.out.println("✅ [EXPENSE SERVICE] AI berhasil mengekstrak Notifikasi: " + aiResponse.getMerchant());
+
+        Transaction transaction = mapToEntity(aiResponse, "NOTIFICATION");
+
+        Transaction savedTransaction = transactionRepository.save(transaction);
+        System.out.println("💾 [EXPENSE SERVICE] Data Notifikasi disimpan ke Database ID: " + savedTransaction.getId());
 
         return savedTransaction;
     }
@@ -52,7 +69,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * Logic Mapping to Entity
      */
-    private Transaction mapToEntity(AiExpenseResponse aiResponse) {
+    private Transaction mapToEntity(AiExpenseResponse aiResponse, String tipeInput) {
         Transaction transaction = new Transaction();
 
         transaction.setJumlah(aiResponse.getTotal());
@@ -60,7 +77,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         transaction.setMerchant(aiResponse.getMerchant());
 
         // Hardcode because the input is a file
-        transaction.setTipeInput("RECEIPT");
+        transaction.setTipeInput(tipeInput);
 
         // PENDING as default, change later in the dashboard
         transaction.setStatusValidasi("PENDING");
@@ -71,9 +88,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         return transaction;
     }
 
-    /**
-     * Metode Defensive Programming khusus untuk Tanggal.
-     */
     private LocalDateTime parseDateAndTime(String dateFromAI, String timeFromAI) {
         // Date
         if (dateFromAI == null || dateFromAI.isBlank()) {

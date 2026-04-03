@@ -43,4 +43,23 @@ public class GeminiServiceImpl implements GeminiService {
 
         return new AiExpenseResponse();
     }
+
+    @Override
+    public AiExpenseResponse prosesNotifikasi(String teksNotifikasi) {
+        try {
+            GeminiResponse response = geminiOutboundService.sendTextToGemini(teksNotifikasi);
+
+            if (response != null && !response.candidates().isEmpty()) {
+                String extractedJsonText = response.candidates().getFirst().content().parts().getFirst().text();
+                extractedJsonText = extractedJsonText.replace("```json", "").replace("```", "").trim();
+
+                ObjectMapper mapper = new ObjectMapper();
+                return mapper.readValue(extractedJsonText, AiExpenseResponse.class);
+            }
+        } catch (Exception e) {
+            System.err.println("Gagal memproses AI (Notifikasi): " + e.getMessage());
+            e.printStackTrace();
+        }
+        return new AiExpenseResponse();
+    }
 }
