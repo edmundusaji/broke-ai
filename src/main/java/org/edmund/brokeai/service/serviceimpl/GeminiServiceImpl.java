@@ -7,13 +7,10 @@ import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;
 import org.edmund.brokeai.service.GeminiService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor

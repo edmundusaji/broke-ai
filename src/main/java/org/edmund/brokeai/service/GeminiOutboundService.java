@@ -1,6 +1,5 @@
 package org.edmund.brokeai.service;
 
-import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.springframework.web.multipart.MultipartFile;
 

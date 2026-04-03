@@ -1,6 +1,5 @@
 package org.edmund.brokeai.service.serviceimpl;
 
-import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;

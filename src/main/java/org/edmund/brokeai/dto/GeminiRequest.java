@@ -10,10 +10,6 @@ public record GeminiRequest(List<Content> contents) {
 
     public record Content(List<Part> parts) {}
 
-    // @JsonInclude(JsonInclude.Include.NON_NULL) sangat penting di sini.
-    // Tujuannya agar jika kita hanya mengirim teks (image-nya null),
-    // Jackson tidak akan mencetak "inlineData": null ke dalam JSON,
-    // yang bisa membuat Google API bingung/error.
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Part(String text, InlineData inlineData) {}
 
