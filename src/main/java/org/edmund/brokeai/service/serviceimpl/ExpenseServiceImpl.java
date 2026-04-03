@@ -48,10 +48,10 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
-    public Transaction prosesDanSimpanNotifikasi(String teksNotifikasi) {
+    public Transaction saveNotification(String notification) {
         System.out.println("🚀 [EXPENSE SERVICE] Memulai proses Notifikasi...");
 
-        AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(teksNotifikasi);
+        AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
 
         if (aiResponse == null || aiResponse.getTotal() == null) {
             throw new RuntimeException("Gagal mengekstrak data penting dari Notifikasi.");

@@ -50,7 +50,7 @@ public class ExpenseController {
         }
 
         try {
-            Transaction savedData = expenseService.prosesDanSimpanNotifikasi(request.text());
+            Transaction savedData = expenseService.saveNotification(request.text());
             return ResponseEntity.ok(savedData);
         } catch (Exception e) {
             System.err.println("Error di Controller (Notification): " + e.getMessage());

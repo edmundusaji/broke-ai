@@ -8,5 +8,5 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public interface ExpenseService {
     Transaction saveReceipt(MultipartFile file);
-    Transaction prosesDanSimpanNotifikasi(String teksNotifikasi);
+    Transaction saveNotification(String notification);
 }
