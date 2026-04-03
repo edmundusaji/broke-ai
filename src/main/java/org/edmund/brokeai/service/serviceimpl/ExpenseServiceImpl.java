@@ -49,19 +49,19 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public Transaction saveNotification(String notification) {
-        System.out.println("🚀 [EXPENSE SERVICE] Memulai proses Notifikasi...");
+        System.out.println("🚀 [EXPENSE SERVICE] Start processing notifications...");
 
         AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
 
         if (aiResponse == null || aiResponse.getTotal() == null) {
-            throw new RuntimeException("Gagal mengekstrak data penting dari Notifikasi.");
+            throw new RuntimeException("⛔ [EXPENSE SERVICE] Failed to process notifications");
         }
-        System.out.println("✅ [EXPENSE SERVICE] AI berhasil mengekstrak Notifikasi: " + aiResponse.getMerchant());
+        System.out.println("✅ [EXPENSE SERVICE] Extract Completed: " + aiResponse.getMerchant());
 
         Transaction transaction = mapToEntity(aiResponse, "NOTIFICATION");
 
         Transaction savedTransaction = transactionRepository.save(transaction);
-        System.out.println("💾 [EXPENSE SERVICE] Data Notifikasi disimpan ke Database ID: " + savedTransaction.getId());
+        System.out.println("💾 [EXPENSE SERVICE] Data successfully saved with ID : " + savedTransaction.getId());
 
         return savedTransaction;
     }
