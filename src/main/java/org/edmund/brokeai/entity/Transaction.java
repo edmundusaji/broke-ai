@@ -22,7 +22,7 @@ public class Transaction {
     private String merchant;
 
     @Column(name = "tipe_input")
-    private String tipeInput; // STRUK, NOTIFIKASI
+    private String tipeInput; // RECEIPT, NOTIFICATION
 
     @Column(name = "status_validasi")
     private String statusValidasi; // PENDING, CONFIRMED

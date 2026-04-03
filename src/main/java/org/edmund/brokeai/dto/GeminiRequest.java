@@ -4,8 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
- * Struktur DTO untuk mengirim format JSON ke Gemini API.
- * Menggunakan 'record' (fitur modern Java) agar kode ringkas tanpa Lombok.
+ * DTO to send JSON => Gemini API.
  */
 public record GeminiRequest(List<Content> contents) {
 
