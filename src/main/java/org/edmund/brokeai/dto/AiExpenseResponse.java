@@ -4,9 +4,9 @@ import lombok.Data;
 
 @Data
 public class AiExpenseResponse {
-    private String tanggal;
+    private String tanggal; // date
     private Double total;
     private String kategori;
     private String merchant;
-    private String waktu;
+    private String waktu; // time
 }

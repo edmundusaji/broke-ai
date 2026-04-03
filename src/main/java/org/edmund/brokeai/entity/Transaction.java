@@ -13,9 +13,9 @@ public class Transaction {
     @GeneratedValue (strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime tanggal;
+    private LocalDateTime tanggal; // date
 
-    private Double jumlah;
+    private Double jumlah; // total
 
     private String kategori;
 
