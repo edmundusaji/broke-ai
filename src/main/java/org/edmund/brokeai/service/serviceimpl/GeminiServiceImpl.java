@@ -3,7 +3,6 @@ package org.edmund.brokeai.service.serviceimpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.AiExpenseResponse;
-import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;
 import org.edmund.brokeai.service.GeminiService;
@@ -19,7 +18,7 @@ public class GeminiServiceImpl implements GeminiService {
     private final GeminiOutboundService geminiOutboundService;
 
     @Override
-    public AiExpenseResponse prosesStruk(MultipartFile file) {
+    public AiExpenseResponse receiptProcess(MultipartFile file) {
 
         try {
             byte[] fileBytes = file.getBytes();
@@ -38,7 +37,7 @@ public class GeminiServiceImpl implements GeminiService {
                 return mapper.readValue(extractedJsonText, AiExpenseResponse.class);
             }
         } catch (Exception e) {
-            System.err.println("Gagal memproses AI: " + e.getMessage());
+            System.err.println("Failed to Process AI: " + e.getMessage());
             e.printStackTrace();
         }
 
