@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "receipt")
 @Data
 public class Transaction {
 
@@ -21,9 +21,7 @@ public class Transaction {
 
     private String merchant;
 
-    @Column(name = "tipe_input")
     private String tipeInput; // RECEIPT, NOTIFICATION
 
-    @Column(name = "status_validasi")
     private String statusValidasi; // PENDING, CONFIRMED
 }

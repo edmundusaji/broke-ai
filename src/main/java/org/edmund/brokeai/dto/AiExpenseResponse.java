@@ -8,4 +8,5 @@ public class AiExpenseResponse {
     private Double total;
     private String kategori;
     private String merchant;
+    private String waktu;
 }
