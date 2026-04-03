@@ -40,7 +40,8 @@ public class GeminiOutboundServiceImpl implements GeminiOutboundService {
 
         String promptText = "Extract this receipt image. Return ONLY in pure JSON format " +
                 "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
-                "kategori (decide 1 word, misal: Food, Transportation), merchant, and waktu(timestamp), if timestamp not found return null. Without markdown ```json.";
+                "kategori (decide 1 word, misal: Food, Transportation), merchant, and waktu(timestamp), " +
+                "if timestamp not found return null. Without markdown ```json.";
 
         GeminiRequest.InlineData inlineData = new GeminiRequest.InlineData(mimeType, base64EncodedImage);
         GeminiRequest.Part textPart = new GeminiRequest.Part(promptText, null);
