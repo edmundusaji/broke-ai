@@ -44,7 +44,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         // Save to PostgreSQL
         Transaction savedTransaction = transactionRepository.save(transaction);
 
-        System.out.println("💾 [EXPENSE SERVICE] Data berhasil disimpan ke Database dengan ID: " + savedTransaction.getId());
+        System.out.println("💾 [EXPENSE SERVICE] Data successfully saved with ID : " + savedTransaction.getId());
 
         return savedTransaction;
     }
@@ -65,8 +65,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         // PENDING as default, change later in the dashboard
         transaction.setStatusValidasi("PENDING");
 
-        // Parse Date
-        transaction.setTanggal(parseDate(aiResponse.getTanggal()));
+        // Parse Date + Time
+        transaction.setTanggal(parseDateAndTime(aiResponse.getTanggal(), aiResponse.getWaktu()));
 
         return transaction;
     }
@@ -74,23 +74,37 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * Metode Defensive Programming khusus untuk Tanggal.
      */
-    private LocalDateTime parseDate(String dateFromAI) {
+    private LocalDateTime parseDateAndTime(String dateFromAI, String timeFromAI) {
+        // Date
         if (dateFromAI == null || dateFromAI.isBlank()) {
-            System.err.println("⚠️ [WARNING] AI did not find any date");
-            return LocalDateTime.now(); // Upload time
-        }
-
-        try {
-            // Target format => YYYY-MM-DD
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            LocalDate localDate = LocalDate.parse(dateFromAI.trim(), formatter);
-
-            return LocalDateTime.of(localDate, LocalTime.MIDNIGHT);
-
-        } catch (DateTimeParseException e) {
-            // If AI response with a weird format (ex: "23 July 2017")
-            System.err.println("⚠️ [WARNING] Wrong date format ('" + dateFromAI + "'). Please try again");
+            System.err.println("⚠️ [WARNING] AI did not find any date. Falling back to CURRENT time.");
             return LocalDateTime.now();
         }
+
+        LocalDate localDate;
+        try {
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            localDate = LocalDate.parse(dateFromAI.trim(), dateFormatter);
+        } catch (DateTimeParseException e) {
+            System.err.println("⚠️ [WARNING] Wrong date format ('" + dateFromAI + "'). Falling back to CURRENT time.");
+            return LocalDateTime.now();
+        }
+
+        // Time
+        LocalTime localTime;
+        if (timeFromAI == null || timeFromAI.isBlank() || timeFromAI.equalsIgnoreCase("null")) {
+            System.out.println("⚠️ [INFO] AI did not find time. Using current device upload time.");
+            localTime = LocalTime.now(); // Default upload time
+        } else {
+            try {
+                localTime = LocalTime.parse(timeFromAI.trim());
+            } catch (DateTimeParseException e) {
+                System.err.println("⚠️ [WARNING] Wrong time format ('" + timeFromAI + "'). Using current device upload time.");
+                localTime = LocalTime.now();
+            }
+        }
+
+        // Combine
+        return LocalDateTime.of(localDate, localTime);
     }
 }

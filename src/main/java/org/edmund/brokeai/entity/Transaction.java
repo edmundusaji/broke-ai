@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "receipt")
 @Data
 public class Transaction {
 
@@ -13,17 +13,15 @@ public class Transaction {
     @GeneratedValue (strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime tanggal;
+    private LocalDateTime tanggal; // date
 
-    private Double jumlah;
+    private Double jumlah; // total
 
     private String kategori;
 
     private String merchant;
 
-    @Column(name = "tipe_input")
     private String tipeInput; // RECEIPT, NOTIFICATION
 
-    @Column(name = "status_validasi")
     private String statusValidasi; // PENDING, CONFIRMED
 }
