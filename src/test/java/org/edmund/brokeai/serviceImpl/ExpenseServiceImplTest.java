@@ -111,4 +111,87 @@ class ExpenseServiceImplTest {
         verify(geminiService, times(1)).prosesNotifikasi(notifText);
         verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
+
+    @Test
+    void saveReceipt_FailedDueToNullAiResponse_Test() {
+        when(geminiService.receiptProcess(mockFile)).thenReturn(null);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            expenseServiceImpl.saveReceipt(mockFile);
+        });
+
+        assertEquals("⛔ [EXPENSE SERVICE] Failed to process receipt", exception.getMessage());
+    }
+
+    @Test
+    void saveNotification_FailedDueToNullAiResponse_Test() {
+        when(geminiService.prosesNotifikasi(anyString())).thenReturn(null);
+
+        assertThrows(RuntimeException.class, () -> {
+            expenseServiceImpl.saveNotification("Notif BCA");
+        });
+    }
+
+    @Test
+    void saveNotification_FailedDueToNullTotal_Test() {
+        mockAiResponse.setTotal(null);
+        when(geminiService.prosesNotifikasi(anyString())).thenReturn(mockAiResponse);
+
+        assertThrows(RuntimeException.class, () -> {
+            expenseServiceImpl.saveNotification("Notif OVO");
+        });
+    }
+
+    @Test
+    void parseDateAndTime_FallbackForInvalidDate_Test() {
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
+
+        mockAiResponse.setTanggal(null);
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result1 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result1.getTanggal());
+
+        mockAiResponse.setTanggal("28 Maret 2026");
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result2 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result2.getTanggal());
+
+        mockAiResponse.setTanggal("   ");
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result3 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result3.getTanggal());
+    }
+
+    @Test
+    void parseDateAndTime_FallbackForInvalidTime_Test() {
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
+
+        mockAiResponse.setTanggal("2026-03-28");
+        mockAiResponse.setWaktu("null");
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result1 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result1.getTanggal());
+
+        mockAiResponse.setWaktu("Jam 3 Sore");
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result2 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result2.getTanggal());
+
+        mockAiResponse.setWaktu("   ");
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result3 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result3.getTanggal());
+
+        mockAiResponse.setWaktu(null);
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+
+        Transaction result4 = expenseServiceImpl.saveReceipt(mockFile);
+        assertNotNull(result4.getTanggal());
+    }
 }
