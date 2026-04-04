@@ -15,18 +15,15 @@ import org.springframework.web.multipart.MultipartFile;
 
 /** entrypoint */
 public class ExpenseController {
-
     private final ExpenseService expenseService;
 
     @PostMapping(value = "/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload and Process Receipt",
             description = "Support File Type: .jpg/.jpeg | .png | .webp | .heic/.heif")
     public ResponseEntity<Transaction> processReceipt(@RequestParam("file") MultipartFile file) {
-
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-
         try {
             Transaction response = expenseService.saveReceipt(file);
             return ResponseEntity.ok(response);
@@ -46,7 +43,6 @@ public class ExpenseController {
         if (request == null || request.text() == null || request.text().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-
         try {
             Transaction savedData = expenseService.saveNotification(request.text());
             return ResponseEntity.ok(savedData);
