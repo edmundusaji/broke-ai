@@ -8,6 +8,7 @@ import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;
 import org.edmund.brokeai.service.GeminiService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
@@ -68,9 +69,10 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     @Override
-    public AiExpenseResponse prosesNotifikasi(String teksNotifikasi) {
+    public AiExpenseResponse prosesNotifikasi(String notificationText) {
         try {
-            GeminiResponse response = geminiOutboundService.sendTextToGemini(teksNotifikasi);
+            GeminiRequest request = sendTextToGemini(notificationText);
+            GeminiResponse response = geminiOutboundService.sendToGemini(request);
 
             if (response != null && !response.candidates().isEmpty()) {
                 String extractedJsonText = response.candidates().getFirst().content().parts().getFirst().text();
@@ -84,5 +86,19 @@ public class GeminiServiceImpl implements GeminiService {
             e.printStackTrace();
         }
         return new AiExpenseResponse();
+    }
+
+    public GeminiRequest sendTextToGemini(String notificationText) {
+        String promptText = "Extract this transaction text notification. eturn ONLY in pure JSON format " +
+                "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
+                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), merchant, " +
+                "dan waktu (format HH:mm:ss), if time not found return null.  Without markdown ```json.\n\n" +
+                "Teks Notifikasi: " + notificationText;
+
+        GeminiRequest.Part textPart = new GeminiRequest.Part(promptText, null);
+        GeminiRequest.Content content = new GeminiRequest.Content(List.of(textPart));
+        GeminiRequest request = new GeminiRequest(List.of(content));
+
+        return request;
     }
 }

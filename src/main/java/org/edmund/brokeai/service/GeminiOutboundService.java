@@ -5,5 +5,4 @@ import org.edmund.brokeai.dto.GeminiResponse;
 
 public interface GeminiOutboundService {
     GeminiResponse sendToGemini(GeminiRequest request);
-    GeminiResponse sendTextToGemini(String text);
 }
