@@ -2,10 +2,8 @@ package org.edmund.brokeai.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
-import org.edmund.brokeai.dto.AiExpenseResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
-import org.edmund.brokeai.service.GeminiService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
