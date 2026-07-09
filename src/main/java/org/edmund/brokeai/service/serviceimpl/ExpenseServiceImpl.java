@@ -2,6 +2,8 @@ package org.edmund.brokeai.service.serviceimpl;
 
 import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.AiExpenseResponse;
+import org.edmund.brokeai.dto.CategorySummaryDTO;
+import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
 import org.edmund.brokeai.service.ExpenseService;
@@ -12,8 +14,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -64,6 +68,29 @@ public class ExpenseServiceImpl implements ExpenseService {
         System.out.println("💾 [EXPENSE SERVICE] Data successfully saved with ID : " + savedTransaction.getId());
 
         return savedTransaction;
+    }
+
+    @Override
+    public ExpenseSummaryResponse getExpenseSummary(int month, int year) {
+        System.out.println("📊 [EXPENSE SERVICE] Menarik data agregasi untuk " + month + "/" + year);
+
+        // Menentukan tanggal awal bulan (tanggal 1, jam 00:00:00)
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDateTime startDate = yearMonth.atDay(1).atStartOfDay();
+
+        // Menentukan tanggal akhir bulan (tanggal 30/31, jam 23:59:59)
+        LocalDateTime endDate = yearMonth.atEndOfMonth().atTime(23, 59, 59);
+
+        // Menyuruh Repository melakukan query berat ke PostgreSQL
+        List<CategorySummaryDTO>
+            breakdown = transactionRepository.getExpenseSummaryByDateRange(startDate, endDate);
+
+        // Menjumlahkan total dari semua irisan kategori
+        Double total = breakdown.stream()
+            .mapToDouble(CategorySummaryDTO::totalAmount)
+            .sum();
+
+        return new ExpenseSummaryResponse(total, breakdown);
     }
 
     /**

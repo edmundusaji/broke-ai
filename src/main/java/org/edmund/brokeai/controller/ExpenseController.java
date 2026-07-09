@@ -2,12 +2,15 @@ package org.edmund.brokeai.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/expense")
@@ -16,6 +19,26 @@ import org.springframework.web.multipart.MultipartFile;
 /** entrypoint */
 public class ExpenseController {
     private final ExpenseService expenseService;
+
+    @GetMapping("/summary")
+    @Operation(summary = "Mendapatkan Ringkasan Pengeluaran per Bulan",
+        description = "Mengembalikan total pengeluaran dan rincian per kategori. Jika month/year kosong, menggunakan bulan ini.")
+    public ResponseEntity<ExpenseSummaryResponse> getSummary(
+        @RequestParam(required = false) Integer month,
+        @RequestParam(required = false) Integer year) {
+
+        // Trik UX: Jika Android tidak mengirim parameter bulan/tahun, kita beri data bulan ini secara default
+        if (month == null) month = LocalDate.now().getMonthValue();
+        if (year == null) year = LocalDate.now().getYear();
+
+        try {
+            ExpenseSummaryResponse summary = expenseService.getExpenseSummary(month, year);
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            System.err.println("Error di Controller (Summary): " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
     @PostMapping(value = "/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload and Process Receipt",
