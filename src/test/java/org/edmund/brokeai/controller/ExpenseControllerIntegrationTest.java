@@ -1,8 +1,11 @@
 package org.edmund.brokeai.controller;
 
 import org.edmund.brokeai.dto.GeminiResponse;
+import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -18,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,6 +31,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,10 +52,17 @@ class ExpenseControllerIntegrationTest {
     @Autowired
     private ExpenseController expenseController;
 
+    @Autowired
+    private JwtService jwtService;
+
     @MockitoBean
     private TransactionRepository transactionRepository;
 
+    @MockitoBean
+    private UserRepository userRepository;
+
     private GeminiResponse mockGeminiResponse;
+    private AppUser mockUser;
 
     @BeforeEach
     void setUp() {
@@ -62,6 +75,15 @@ class ExpenseControllerIntegrationTest {
                 "}";
 
         mockGeminiResponse = createMockGeminiResponse(fakeJsonResponse);
+
+        mockUser = new AppUser();
+        mockUser.setId(1L);
+        mockUser.setNamaLengkap("Rani Test");
+        mockUser.setUsername("rani");
+        mockUser.setEmail("rani@example.com");
+        mockUser.setPassword("hashed-password");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
     }
 
     @Test
@@ -84,7 +106,9 @@ class ExpenseControllerIntegrationTest {
                     "file", "struk_grab.jpg", "image/jpeg", "fake image data".getBytes());
 
             mockMvc.perform(multipart("/api/v1/expense/receipt")
-                            .file(mockFile))
+                            .file(mockFile)
+                            .header("Authorization", authHeader())
+            )
                     .andExpect(status().isOk()) // HTTP 200 OK
                     .andExpect(jsonPath("$.id").value(100L))
                     .andExpect(jsonPath("$.merchant").value("Grab"))
@@ -114,6 +138,7 @@ class ExpenseControllerIntegrationTest {
             String requestBody = "{ \"text\": \"Kamu telah membayar Grab sebesar Rp 75.000\" }";
 
             mockMvc.perform(post("/api/v1/expense/notification")
+                            .header("Authorization", authHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isOk()) // HTTP 200 OK
@@ -128,6 +153,7 @@ class ExpenseControllerIntegrationTest {
         String badRequestBody = "{ \"text\": \"\" }";
 
         mockMvc.perform(post("/api/v1/expense/notification")
+                        .header("Authorization", authHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(badRequestBody))
                 .andExpect(status().isBadRequest());
@@ -137,7 +163,10 @@ class ExpenseControllerIntegrationTest {
     void processReceipt_EmptyFile_ReturnsBadRequest() throws Exception {
         MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
 
-        mockMvc.perform(multipart("/api/v1/expense/receipt").file(emptyFile))
+        mockMvc.perform(multipart("/api/v1/expense/receipt")
+                        .file(emptyFile)
+                        .header("Authorization", authHeader())
+        )
                 .andExpect(status().isBadRequest());
     }
 
@@ -146,9 +175,48 @@ class ExpenseControllerIntegrationTest {
         String requestBody = "{ \"text\": null }";
 
         mockMvc.perform(post("/api/v1/expense/notification")
+                        .header("Authorization", authHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void processNotification_MissingToken_ReturnsUnauthorized() throws Exception {
+        String requestBody = "{ \"text\": \"Kamu telah membayar Grab sebesar Rp 75.000\" }";
+
+        mockMvc.perform(post("/api/v1/expense/notification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getHistory_Success_IntegrationTest() throws Exception {
+        Transaction transaction = new Transaction();
+        transaction.setId(300L);
+        transaction.setMerchant("Grab");
+        transaction.setKategori("Transportasi");
+        transaction.setJumlah(75000.0);
+        transaction.setTanggal(LocalDateTime.of(2026, 3, 28, 9, 15));
+        transaction.setTipeInput("NOTIFICATION");
+        transaction.setStatusValidasi("PENDING");
+
+        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(
+                any(AppUser.class),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+            ))
+            .thenReturn(List.of(transaction));
+
+        mockMvc.perform(get("/api/v1/expense/history")
+                        .header("Authorization", authHeader())
+                        .param("month", "3")
+                        .param("year", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(300L))
+                .andExpect(jsonPath("$[0].merchant").value("Grab"))
+                .andExpect(jsonPath("$[0].jumlah").value(75000.0));
     }
 
     @Test
@@ -172,7 +240,10 @@ class ExpenseControllerIntegrationTest {
 
             MockMultipartFile mockFile = new MockMultipartFile("file", "struk.jpg", "image/jpeg", "data".getBytes());
 
-            mockMvc.perform(multipart("/api/v1/expense/receipt").file(mockFile))
+            mockMvc.perform(multipart("/api/v1/expense/receipt")
+                            .file(mockFile)
+                            .header("Authorization", authHeader())
+            )
                     .andExpect(status().isInternalServerError()); // 500
         }
     }
@@ -190,6 +261,7 @@ class ExpenseControllerIntegrationTest {
             String requestBody = "{ \"text\": \"Notifikasi\" }";
 
             mockMvc.perform(post("/api/v1/expense/notification")
+                            .header("Authorization", authHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isInternalServerError()); // 500
@@ -201,5 +273,9 @@ class ExpenseControllerIntegrationTest {
         GeminiResponse.Content content = new GeminiResponse.Content(List.of(part));
         GeminiResponse.Candidate candidate = new GeminiResponse.Candidate(content);
         return new GeminiResponse(List.of(candidate));
+    }
+
+    private String authHeader() {
+        return "Bearer " + jwtService.generateToken(mockUser);
     }
 }

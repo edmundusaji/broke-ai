@@ -4,6 +4,8 @@ import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 /**
  * Call GeminiService to interact with TransactionRepository.
  */
@@ -11,4 +13,5 @@ public interface ExpenseService {
     Transaction saveReceipt(MultipartFile file);
     Transaction saveNotification(String notification);
     ExpenseSummaryResponse getExpenseSummary(int month, int year);
+    List<Transaction> getExpenseHistory(int month, int year);
 }

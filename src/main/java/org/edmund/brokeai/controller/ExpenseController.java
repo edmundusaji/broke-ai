@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/expense")
@@ -36,6 +37,25 @@ public class ExpenseController {
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
             System.err.println("Error di Controller (Summary): " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/history")
+    @Operation(summary = "Mendapatkan Riwayat Transaksi per Bulan",
+        description = "Mengembalikan transaksi milik user login, diurutkan dari tanggal terbaru.")
+    public ResponseEntity<List<Transaction>> getHistory(
+        @RequestParam(required = false) Integer month,
+        @RequestParam(required = false) Integer year) {
+
+        if (month == null) month = LocalDate.now().getMonthValue();
+        if (year == null) year = LocalDate.now().getYear();
+
+        try {
+            List<Transaction> history = expenseService.getExpenseHistory(month, year);
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            System.err.println("Error di Controller (History): " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
