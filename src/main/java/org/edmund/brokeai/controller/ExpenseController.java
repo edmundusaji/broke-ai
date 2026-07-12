@@ -1,6 +1,7 @@
 package org.edmund.brokeai.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.entity.Transaction;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/expense")
+@SecurityRequirement(name = "Bearer Authentication")
 @RequiredArgsConstructor
 
 /** entrypoint */
@@ -28,7 +30,6 @@ public class ExpenseController {
         @RequestParam(required = false) Integer month,
         @RequestParam(required = false) Integer year) {
 
-        // Trik UX: Jika Android tidak mengirim parameter bulan/tahun, kita beri data bulan ini secara default
         if (month == null) month = LocalDate.now().getMonthValue();
         if (year == null) year = LocalDate.now().getYear();
 

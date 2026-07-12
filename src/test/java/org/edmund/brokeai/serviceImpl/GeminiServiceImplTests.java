@@ -7,6 +7,7 @@ import org.edmund.brokeai.service.GeminiOutboundService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,6 +15,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -96,6 +98,22 @@ class GeminiServiceImplTests {
 
         assertNotNull(result);
         assertEquals("Kopi Kenangan", result.getMerchant());
+    }
+
+    @Test
+    void prosesNotifikasi_PromptIncludesCurrentDateFallbackInstruction_Test() {
+        GeminiResponse mockResponse = createMockGeminiResponse(validJsonResponseString);
+        when(geminiOutboundService.sendToGemini(any(GeminiRequest.class))).thenReturn(mockResponse);
+        ArgumentCaptor<GeminiRequest> requestCaptor = ArgumentCaptor.forClass(GeminiRequest.class);
+
+        geminiService.prosesNotifikasi("Pembayaran berhasil sebesar Rp 25.000");
+
+        verify(geminiOutboundService).sendToGemini(requestCaptor.capture());
+        String promptText = requestCaptor.getValue().contents().getFirst().parts().getFirst().text();
+
+        assertTrue(promptText.contains("Today's date is " + LocalDate.now()));
+        assertTrue(promptText.contains("If the provided text does not contain any explicit date"));
+        assertTrue(promptText.contains("strictly return today's date as tanggal"));
     }
 
     @Test

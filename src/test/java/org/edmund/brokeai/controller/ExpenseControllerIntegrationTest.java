@@ -6,6 +6,7 @@ import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.security.JwtService;
+import org.edmund.brokeai.service.RateLimitingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockConstruction;
@@ -61,6 +63,9 @@ class ExpenseControllerIntegrationTest {
     @MockitoBean
     private UserRepository userRepository;
 
+    @MockitoBean
+    private RateLimitingService rateLimitingService;
+
     private GeminiResponse mockGeminiResponse;
     private AppUser mockUser;
 
@@ -84,6 +89,7 @@ class ExpenseControllerIntegrationTest {
         mockUser.setPassword("hashed-password");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(rateLimitingService.tryConsume(anyLong())).thenReturn(true);
     }
 
     @Test
@@ -189,6 +195,18 @@ class ExpenseControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void processNotification_RateLimitExceeded_ReturnsTooManyRequests() throws Exception {
+        when(rateLimitingService.tryConsume(1L)).thenReturn(false);
+        String requestBody = "{ \"text\": \"Kamu telah membayar Grab sebesar Rp 75.000\" }";
+
+        mockMvc.perform(post("/api/v1/expense/notification")
+                        .header("Authorization", authHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isTooManyRequests());
     }
 
     @Test
