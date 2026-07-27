@@ -1,5 +1,6 @@
 package org.edmund.brokeai.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -24,4 +25,9 @@ public class Transaction {
     private String tipeInput; // RECEIPT, NOTIFICATION
 
     private String statusValidasi; // PENDING, CONFIRMED
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

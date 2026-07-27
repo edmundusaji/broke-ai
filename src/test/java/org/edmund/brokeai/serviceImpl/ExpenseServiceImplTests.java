@@ -1,8 +1,10 @@
 package org.edmund.brokeai.serviceImpl;
 
 import org.edmund.brokeai.dto.AiExpenseResponse;
+import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.GeminiService;
 import org.edmund.brokeai.service.serviceimpl.ExpenseServiceImpl;
 import org.junit.jupiter.api.AfterEach;
@@ -31,9 +33,13 @@ class ExpenseServiceImplTests {
     @Mock
     private TransactionRepository transactionRepository;
 
+    @Mock
+    private CurrentUserService currentUserService;
+
     private MultipartFile mockFile;
     private AiExpenseResponse mockAiResponse;
     private Transaction mockTransaction;
+    private AppUser mockUser;
 
     @BeforeEach
     void setUp() {
@@ -51,6 +57,14 @@ class ExpenseServiceImplTests {
         mockTransaction.setId(1L);
         mockTransaction.setMerchant("Kopi Kenangan");
         mockTransaction.setJumlah(55000.0);
+
+        mockUser = new AppUser();
+        mockUser.setId(10L);
+        mockUser.setNamaLengkap("Rani Test");
+        mockUser.setUsername("rani");
+        mockUser.setEmail("rani@example.com");
+
+        when(currentUserService.getCurrentUser()).thenReturn(mockUser);
     }
 
     @AfterEach
@@ -82,7 +96,7 @@ class ExpenseServiceImplTests {
             expenseServiceImpl.saveReceipt(mockFile);
         });
 
-        assertEquals("⛔ [EXPENSE SERVICE] Failed to process receipt", exception.getMessage());
+        assertEquals("Failed to process receipt", exception.getMessage());
 
         verify(geminiService, times(1)).receiptProcess(mockFile);
         verify(transactionRepository, times(0)).save(any());
@@ -120,7 +134,7 @@ class ExpenseServiceImplTests {
             expenseServiceImpl.saveReceipt(mockFile);
         });
 
-        assertEquals("⛔ [EXPENSE SERVICE] Failed to process receipt", exception.getMessage());
+        assertEquals("Failed to process receipt", exception.getMessage());
     }
 
     @Test

@@ -10,6 +10,7 @@ import org.edmund.brokeai.service.GeminiService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
 
@@ -88,10 +89,13 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     private static GeminiRequest buildTextRequest(String notificationText) {
+        LocalDate today = LocalDate.now();
         String promptText = "Extract this transaction text notification. Return ONLY in pure JSON format " +
                 "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
                 "kategori (decide 1 word, ex: Food, Transportation, Top-Up), merchant, " +
-                "dan waktu (format HH:mm:ss), if time not found return null. Without markdown ```json.\n\n" +
+                "dan waktu (format HH:mm:ss). System Context: Today's date is " + today + ". " +
+                "If the provided text does not contain any explicit date, strictly return today's date as tanggal. " +
+                "If time not found return null. Without markdown ```json.\n\n" +
                 "Notification Text: " + notificationText;
 
         GeminiRequest.Part textPart = new GeminiRequest.Part(promptText, null);

@@ -1,7 +1,9 @@
 package org.edmund.brokeai.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
 import org.springframework.http.MediaType;
@@ -9,13 +11,55 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/expense")
+@SecurityRequirement(name = "Bearer Authentication")
 @RequiredArgsConstructor
 
 /** entrypoint */
 public class ExpenseController {
     private final ExpenseService expenseService;
+
+    @GetMapping("/summary")
+    @Operation(summary = "Mendapatkan Ringkasan Pengeluaran per Bulan",
+        description = "Mengembalikan total pengeluaran dan rincian per kategori. Jika month/year kosong, menggunakan bulan ini.")
+    public ResponseEntity<ExpenseSummaryResponse> getSummary(
+        @RequestParam(required = false) Integer month,
+        @RequestParam(required = false) Integer year) {
+
+        if (month == null) month = LocalDate.now().getMonthValue();
+        if (year == null) year = LocalDate.now().getYear();
+
+        try {
+            ExpenseSummaryResponse summary = expenseService.getExpenseSummary(month, year);
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            System.err.println("Error di Controller (Summary): " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/history")
+    @Operation(summary = "Mendapatkan Riwayat Transaksi per Bulan",
+        description = "Mengembalikan transaksi milik user login, diurutkan dari tanggal terbaru.")
+    public ResponseEntity<List<Transaction>> getHistory(
+        @RequestParam(required = false) Integer month,
+        @RequestParam(required = false) Integer year) {
+
+        if (month == null) month = LocalDate.now().getMonthValue();
+        if (year == null) year = LocalDate.now().getYear();
+
+        try {
+            List<Transaction> history = expenseService.getExpenseHistory(month, year);
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            System.err.println("Error di Controller (History): " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
     @PostMapping(value = "/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload and Process Receipt",
