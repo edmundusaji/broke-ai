@@ -2,6 +2,7 @@ package org.edmund.brokeai.security;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import org.edmund.brokeai.entity.AppUser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class JwtService {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
+    @Getter
     @Value("${app.jwt.expiration-seconds}")
     private long expirationSeconds;
 
@@ -50,10 +52,6 @@ public class JwtService {
             return number.longValue();
         }
         throw new IllegalArgumentException("Token does not contain a valid userId");
-    }
-
-    public long getExpirationSeconds() {
-        return expirationSeconds;
     }
 
     private Map<String, Object> parseAndValidate(String token) {
