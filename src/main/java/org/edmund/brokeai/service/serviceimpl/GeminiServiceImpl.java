@@ -2,6 +2,7 @@ package org.edmund.brokeai.service.serviceimpl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.edmund.brokeai.dto.AiExpenseResponse;
 import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
@@ -14,6 +15,7 @@ import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GeminiServiceImpl implements GeminiService {
@@ -29,8 +31,7 @@ public class GeminiServiceImpl implements GeminiService {
             GeminiRequest request = buildImageRequest(file, base64EncodedImage);
             return executeAndParse(request);
         } catch (Exception e) {
-            System.err.println("Failed to Process AI (Receipt): " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to Process AI (Receipt): {}", e.getMessage(), e);
         }
         return new AiExpenseResponse();
     }
@@ -42,8 +43,7 @@ public class GeminiServiceImpl implements GeminiService {
             GeminiRequest request = buildTextRequest(notificationText);
             return executeAndParse(request);
         } catch (Exception e) {
-            System.err.println("Failed to Process AI (Notification): " + e.getMessage());
-            e.printStackTrace();
+            log.error("Failed to Process AI (Notification): {}", e.getMessage(), e);
         }
         return new AiExpenseResponse();
     }

@@ -65,7 +65,7 @@ public class ExpenseController {
     @Operation(summary = "Upload and Process Receipt",
             description = "Support File Type: .jpg/.jpeg | .png | .webp | .heic/.heif")
     public ResponseEntity<Transaction> processReceipt(@RequestParam("file") MultipartFile file) {
-        if (file == null || file.isEmpty()) {
+        if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
         try {
@@ -84,7 +84,7 @@ public class ExpenseController {
     @Operation(summary = "Process Notification",
             description = "Accept Copy&Paste text notifications from: BCA, OVO, Gopay, dll")
     public ResponseEntity<Transaction> processNotification(@RequestBody NotificationRequest request) {
-        if (request == null || request.text() == null || request.text().isBlank()) {
+        if (request.text() == null || request.text().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
         try {

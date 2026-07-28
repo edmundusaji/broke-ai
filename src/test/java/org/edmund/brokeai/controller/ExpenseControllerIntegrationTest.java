@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -25,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -38,11 +36,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * INTEGRATION TEST
- * Flow: Controller -> ExpenseService -> GeminiService
- * Mock : Database (Repository) & HTTP Connection (OutboundService)
- */
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
@@ -50,9 +43,6 @@ class ExpenseControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ExpenseController expenseController;
 
     @Autowired
     private JwtService jwtService;
@@ -93,15 +83,84 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
+    void getSummary_WithoutParams_UsesCurrentDateAndReturnsOk() throws Exception {
+        mockMvc.perform(get("/api/v1/expense/summary")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getSummary_WithParams_ReturnsOk() throws Exception {
+        mockMvc.perform(get("/api/v1/expense/summary")
+                        .header("Authorization", authHeader())
+                        .param("month", "5")
+                        .param("year", "2026"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getSummary_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
+        when(transactionRepository.getExpenseSummaryByUserAndDateRange(any(), any(), any()))
+                .thenThrow(new RuntimeException("Simulated DB Error For Summary"));
+
+        mockMvc.perform(get("/api/v1/expense/summary")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void getHistory_WithoutParams_UsesCurrentDate_ReturnsOk() throws Exception {
+        mockMvc.perform(get("/api/v1/expense/history")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getHistory_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
+        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(any(), any(), any()))
+                .thenThrow(new RuntimeException("Simulated DB Error For History"));
+
+        mockMvc.perform(get("/api/v1/expense/history")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void getHistory_Success_IntegrationTest() throws Exception {
+        Transaction transaction = new Transaction();
+        transaction.setId(300L);
+        transaction.setMerchant("Grab");
+        transaction.setKategori("Transportasi");
+        transaction.setJumlah(75000.0);
+        transaction.setTanggal(LocalDateTime.of(2026, 3, 28, 9, 15));
+        transaction.setTipeInput("NOTIFICATION");
+        transaction.setStatusValidasi("PENDING");
+
+        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(
+                any(AppUser.class),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        ))
+                .thenReturn(List.of(transaction));
+
+        mockMvc.perform(get("/api/v1/expense/history")
+                        .header("Authorization", authHeader())
+                        .param("month", "3")
+                        .param("year", "2026"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(300L))
+                .andExpect(jsonPath("$[0].merchant").value("Grab"))
+                .andExpect(jsonPath("$[0].jumlah").value(75000.0));
+    }
+
+    @Test
     void processReceipt_Success_IntegrationTest() throws Exception {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
             Transaction savedData = invocation.getArgument(0);
-            savedData.setId(100L); // Mock postgre gives ID
+            savedData.setId(100L);
             return savedData;
         });
 
-        // Setup Mock HTTP Connection
-        // Because GeminiOutboundServiceImpl is using "new RestTemplate()", we have to intercept the constructor
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {
                     when(mock.postForObject(anyString(), any(), eq(GeminiResponse.class)))
@@ -114,8 +173,8 @@ class ExpenseControllerIntegrationTest {
             mockMvc.perform(multipart("/api/v1/expense/receipt")
                             .file(mockFile)
                             .header("Authorization", authHeader())
-            )
-                    .andExpect(status().isOk()) // HTTP 200 OK
+                    )
+                    .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(100L))
                     .andExpect(jsonPath("$.merchant").value("Grab"))
                     .andExpect(jsonPath("$.jumlah").value(75000.0))
@@ -126,15 +185,12 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void processNotification_Success_IntegrationTest() throws Exception {
-
-        // Mock Database
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
             Transaction savedData = invocation.getArgument(0);
             savedData.setId(200L);
             return savedData;
         });
 
-        // Setup Mock HTTP Connection
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {
                     when(mock.postForObject(anyString(), any(), eq(GeminiResponse.class)))
@@ -147,7 +203,7 @@ class ExpenseControllerIntegrationTest {
                             .header("Authorization", authHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
-                    .andExpect(status().isOk()) // HTTP 200 OK
+                    .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(200L))
                     .andExpect(jsonPath("$.merchant").value("Grab"))
                     .andExpect(jsonPath("$.tipeInput").value("NOTIFICATION"));
@@ -172,7 +228,7 @@ class ExpenseControllerIntegrationTest {
         mockMvc.perform(multipart("/api/v1/expense/receipt")
                         .file(emptyFile)
                         .header("Authorization", authHeader())
-        )
+                )
                 .andExpect(status().isBadRequest());
     }
 
@@ -210,43 +266,6 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
-    void getHistory_Success_IntegrationTest() throws Exception {
-        Transaction transaction = new Transaction();
-        transaction.setId(300L);
-        transaction.setMerchant("Grab");
-        transaction.setKategori("Transportasi");
-        transaction.setJumlah(75000.0);
-        transaction.setTanggal(LocalDateTime.of(2026, 3, 28, 9, 15));
-        transaction.setTipeInput("NOTIFICATION");
-        transaction.setStatusValidasi("PENDING");
-
-        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(
-                any(AppUser.class),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class)
-            ))
-            .thenReturn(List.of(transaction));
-
-        mockMvc.perform(get("/api/v1/expense/history")
-                        .header("Authorization", authHeader())
-                        .param("month", "3")
-                        .param("year", "2026"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(300L))
-                .andExpect(jsonPath("$[0].merchant").value("Grab"))
-                .andExpect(jsonPath("$[0].jumlah").value(75000.0));
-    }
-
-    @Test
-    void triggerDeadCodeNullChecks_DirectlyForCoverage() {
-        ResponseEntity<Transaction> r1 = expenseController.processReceipt(null);
-        assertEquals(400, r1.getStatusCode().value());
-
-        ResponseEntity<Transaction> r2 = expenseController.processNotification(null);
-        assertEquals(400, r2.getStatusCode().value());
-    }
-
-    @Test
     void processReceipt_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
         GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"merchant\": \"Grab\"}");
 
@@ -256,13 +275,15 @@ class ExpenseControllerIntegrationTest {
                             .thenReturn(badGeminiResponse);
                 })) {
 
+            when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
+
             MockMultipartFile mockFile = new MockMultipartFile("file", "struk.jpg", "image/jpeg", "data".getBytes());
 
             mockMvc.perform(multipart("/api/v1/expense/receipt")
                             .file(mockFile)
                             .header("Authorization", authHeader())
-            )
-                    .andExpect(status().isInternalServerError()); // 500
+                    )
+                    .andExpect(status().isInternalServerError());
         }
     }
 
@@ -276,13 +297,15 @@ class ExpenseControllerIntegrationTest {
                             .thenReturn(badGeminiResponse);
                 })) {
 
+            when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
+
             String requestBody = "{ \"text\": \"Notifikasi\" }";
 
             mockMvc.perform(post("/api/v1/expense/notification")
                             .header("Authorization", authHeader())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
-                    .andExpect(status().isInternalServerError()); // 500
+                    .andExpect(status().isInternalServerError());
         }
     }
 

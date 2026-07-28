@@ -46,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        if (request == null || isBlank(request.username()) || isBlank(request.password())) {
+        if (request == null || isBlank(request.username()) || isBlank(request.password()) /* true hits = 0*/) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Username atau password salah");
         }
 
@@ -65,14 +65,15 @@ public class AuthServiceImpl implements AuthService {
     private void validateRegisterRequest(RegisterRequest request) {
         if (request == null
             || isBlank(request.namaLengkap())
-            || isBlank(request.username())
-            || isBlank(request.email())
-            || isBlank(request.password())) {
+            || isBlank(request.username()) // true hits = 0
+            || isBlank(request.email()) // true hits = 0
+            || isBlank(request.password())) // true hits = 0
+            {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data register belum lengkap");
         }
     }
 
     private boolean isBlank(String value) {
-        return value == null || value.isBlank();
+        return value == null /* true hits = 0*/|| value.isBlank();
     }
 }
