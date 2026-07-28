@@ -82,7 +82,6 @@ class ExpenseControllerIntegrationTest {
         when(rateLimitingService.tryConsume(anyLong())).thenReturn(true);
     }
 
-    // 🎯 NEW: Tes Get Summary dengan Parameter Bulan/Tahun Kosong (Coverage if null)
     @Test
     void getSummary_WithoutParams_UsesCurrentDateAndReturnsOk() throws Exception {
         mockMvc.perform(get("/api/v1/expense/summary")
@@ -90,7 +89,6 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    // 🎯 NEW: Tes Get Summary dengan Parameter Lengkap
     @Test
     void getSummary_WithParams_ReturnsOk() throws Exception {
         mockMvc.perform(get("/api/v1/expense/summary")
@@ -100,12 +98,8 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    // 🎯 NEW: Tes Get Summary Exception (Coverage catch block)
     @Test
     void getSummary_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-
-        // GANTI "findByUserAndTanggalBetweenOrderByTanggalDesc" dengan NAMA METHOD YANG BENAR
-        // yang dipanggil oleh getExpenseSummary() di ExpenseServiceImpl milikmu.
         when(transactionRepository.getExpenseSummaryByUserAndDateRange(any(), any(), any()))
                 .thenThrow(new RuntimeException("Simulated DB Error For Summary"));
 
@@ -114,7 +108,6 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isInternalServerError());
     }
 
-    // 🎯 NEW: Tes Get History dengan Parameter Bulan/Tahun Kosong (Coverage if null)
     @Test
     void getHistory_WithoutParams_UsesCurrentDate_ReturnsOk() throws Exception {
         mockMvc.perform(get("/api/v1/expense/history")
@@ -122,10 +115,8 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    // 🎯 NEW: Tes Get History Exception (Coverage catch block)
     @Test
     void getHistory_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        // Kita tahu pasti dari test case sebelumnya bahwa getHistory memanggil method ini
         when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(any(), any(), any()))
                 .thenThrow(new RuntimeException("Simulated DB Error For History"));
 
@@ -284,7 +275,6 @@ class ExpenseControllerIntegrationTest {
                             .thenReturn(badGeminiResponse);
                 })) {
 
-            // Memicu error dengan me-mock repository
             when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
 
             MockMultipartFile mockFile = new MockMultipartFile("file", "struk.jpg", "image/jpeg", "data".getBytes());
@@ -307,7 +297,6 @@ class ExpenseControllerIntegrationTest {
                             .thenReturn(badGeminiResponse);
                 })) {
 
-            // Memicu error dengan me-mock repository
             when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
 
             String requestBody = "{ \"text\": \"Notifikasi\" }";
