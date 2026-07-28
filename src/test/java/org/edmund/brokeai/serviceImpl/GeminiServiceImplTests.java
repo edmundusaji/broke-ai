@@ -1,9 +1,10 @@
-package org.edmund.brokeai.service.serviceimpl;
+package org.edmund.brokeai.serviceImpl;
 
 import org.edmund.brokeai.dto.AiExpenseResponse;
 import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;
+import org.edmund.brokeai.service.serviceimpl.GeminiServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

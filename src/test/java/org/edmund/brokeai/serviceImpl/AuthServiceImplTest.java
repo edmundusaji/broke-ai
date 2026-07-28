@@ -95,10 +95,6 @@ class AuthServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
-    // ==========================================
-    // TEST UNTUK LOGIN
-    // ==========================================
-
     @Test
     void login_Success_ReturnsToken() {
         LoginRequest request = new LoginRequest(" edmundus ", "password123");
