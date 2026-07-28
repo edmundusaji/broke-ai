@@ -21,7 +21,9 @@ jobs:
 
       # 1. SATPAM CI: Jalankan tes dulu. Kalau gagal, berhenti di sini!
       - name: Run Tests
-        run: ./mvnw clean test
+        run: |
+          chmod +x mvnw
+          ./mvnw clean test
 
       # 2. LOGIN DOCKER
       - name: Log in to Docker Hub
