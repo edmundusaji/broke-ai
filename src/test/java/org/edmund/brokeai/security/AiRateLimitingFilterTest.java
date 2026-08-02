@@ -130,4 +130,32 @@ class AiRateLimitingFilterTest {
         verify(rateLimitingService, never()).tryConsume(anyLong());
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    void doFilterInternal_AuthenticationEndpoint_AppliesIpRateLimit() throws ServletException, IOException {
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+        when(request.getContextPath()).thenReturn("");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRemoteAddr()).thenReturn("203.0.113.9");
+        when(rateLimitingService.tryConsumeAuth("203.0.113.9")).thenReturn(true);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(rateLimitingService).tryConsumeAuth("203.0.113.9");
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_AuthenticationLimitExceeded_Returns429() throws ServletException, IOException {
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/register");
+        when(request.getContextPath()).thenReturn("");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRemoteAddr()).thenReturn("203.0.113.9");
+        when(rateLimitingService.tryConsumeAuth("203.0.113.9")).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(response).sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many authentication attempts");
+        verify(filterChain, never()).doFilter(request, response);
+    }
 }

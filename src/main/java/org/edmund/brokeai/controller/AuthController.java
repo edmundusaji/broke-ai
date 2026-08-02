@@ -22,7 +22,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthMessageResponse> register(@RequestBody RegisterRequest request) {
         authService.register(request);
-        return ResponseEntity.ok(new AuthMessageResponse("User berhasil didaftarkan"));
+        return ResponseEntity.ok(new AuthMessageResponse("User registered successfully"));
     }
 
     @PostMapping("/login")

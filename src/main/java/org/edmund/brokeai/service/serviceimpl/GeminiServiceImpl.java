@@ -93,7 +93,7 @@ public class GeminiServiceImpl implements GeminiService {
         String promptText = "Extract this transaction text notification. Return ONLY in pure JSON format " +
                 "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
                 "kategori (decide 1 word, ex: Food, Transportation, Top-Up), merchant, " +
-                "dan waktu (format HH:mm:ss). System Context: Today's date is " + today + ". " +
+                "and waktu (format HH:mm:ss). System Context: Today's date is " + today + ". " +
                 "If the provided text does not contain any explicit date, strictly return today's date as tanggal. " +
                 "If time not found return null. Without markdown ```json.\n\n" +
                 "Notification Text: " + notificationText;

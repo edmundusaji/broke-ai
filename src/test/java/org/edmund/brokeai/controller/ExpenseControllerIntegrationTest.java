@@ -33,6 +33,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -241,6 +243,52 @@ class ExpenseControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createManualExpense_ValidRequest_ReturnsCreatedTransaction() throws Exception {
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction saved = invocation.getArgument(0);
+            saved.setId(400L);
+            return saved;
+        });
+
+        mockMvc.perform(post("/api/v1/expense/manual")
+                        .header("Authorization", authHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-03-28\",\"amount\":75000,\"category\":\"Transport\",\"merchant\":\"Grab\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(400L))
+                .andExpect(jsonPath("$.tipeInput").value("MANUAL"))
+                .andExpect(jsonPath("$.statusValidasi").value("CONFIRMED"));
+    }
+
+    @Test
+    void updateExpense_TransactionBelongsToUser_ReturnsUpdatedTransaction() throws Exception {
+        Transaction transaction = new Transaction();
+        transaction.setId(500L);
+        transaction.setUser(mockUser);
+        when(transactionRepository.findByIdAndUser(500L, mockUser)).thenReturn(Optional.of(transaction));
+        when(transactionRepository.save(transaction)).thenReturn(transaction);
+
+        mockMvc.perform(put("/api/v1/expense/500")
+                        .header("Authorization", authHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-04-01\",\"amount\":50000,\"category\":\"Food\",\"merchant\":\"Cafe\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.merchant").value("Cafe"))
+                .andExpect(jsonPath("$.jumlah").value(50000));
+    }
+
+    @Test
+    void deleteExpense_TransactionBelongsToUser_ReturnsNoContent() throws Exception {
+        Transaction transaction = new Transaction();
+        transaction.setId(600L);
+        when(transactionRepository.findByIdAndUser(600L, mockUser)).thenReturn(Optional.of(transaction));
+
+        mockMvc.perform(delete("/api/v1/expense/600")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isNoContent());
     }
 
     @Test

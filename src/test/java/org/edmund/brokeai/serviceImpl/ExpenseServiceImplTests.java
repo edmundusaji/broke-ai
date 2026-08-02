@@ -1,6 +1,7 @@
 package org.edmund.brokeai.serviceImpl;
 
 import org.edmund.brokeai.dto.AiExpenseResponse;
+import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
@@ -15,11 +16,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+
+import java.time.LocalDate;
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class ExpenseServiceImplTests {
@@ -64,7 +70,7 @@ class ExpenseServiceImplTests {
         mockUser.setUsername("rani");
         mockUser.setEmail("rani@example.com");
 
-        when(currentUserService.getCurrentUser()).thenReturn(mockUser);
+        lenient().when(currentUserService.getCurrentUser()).thenReturn(mockUser);
     }
 
     @AfterEach
@@ -207,5 +213,103 @@ class ExpenseServiceImplTests {
 
         Transaction result4 = expenseServiceImpl.saveReceipt(mockFile);
         assertNotNull(result4.getTanggal());
+    }
+
+    @Test
+    void createManualExpense_ValidRequest_SavesConfirmedManualTransaction() {
+        ExpenseRequest request = validExpenseRequest();
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Transaction result = expenseServiceImpl.createManualExpense(request);
+
+        assertEquals("MANUAL", result.getTipeInput());
+        assertEquals("CONFIRMED", result.getStatusValidasi());
+        assertEquals(mockUser, result.getUser());
+        assertEquals(LocalDate.of(2026, 4, 1).atStartOfDay(), result.getTanggal());
+        assertEquals(75000.0, result.getJumlah());
+        assertEquals("Food", result.getKategori());
+        assertEquals("Cafe", result.getMerchant());
+        verify(transactionRepository).save(result);
+    }
+
+    @Test
+    void updateExpense_TransactionBelongsToCurrentUser_UpdatesAndSavesIt() {
+        ExpenseRequest request = validExpenseRequest();
+        Transaction transaction = new Transaction();
+        transaction.setId(99L);
+        when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.of(transaction));
+        when(transactionRepository.save(transaction)).thenReturn(transaction);
+
+        Transaction result = expenseServiceImpl.updateExpense(99L, request);
+
+        assertSame(transaction, result);
+        assertEquals("Food", transaction.getKategori());
+        assertEquals("Cafe", transaction.getMerchant());
+        verify(transactionRepository).findByIdAndUser(99L, mockUser);
+        verify(transactionRepository).save(transaction);
+    }
+
+    @Test
+    void updateExpense_TransactionNotOwnedOrMissing_ReturnsNotFound() {
+        when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> expenseServiceImpl.updateExpense(99L, validExpenseRequest())
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals("Transaction not found", exception.getReason());
+        verify(transactionRepository).findByIdAndUser(99L, mockUser);
+    }
+
+    @Test
+    void deleteExpense_TransactionBelongsToCurrentUser_DeletesIt() {
+        Transaction transaction = new Transaction();
+        when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.of(transaction));
+
+        expenseServiceImpl.deleteExpense(99L);
+
+        verify(transactionRepository).findByIdAndUser(99L, mockUser);
+        verify(transactionRepository).delete(transaction);
+    }
+
+    @Test
+    void deleteExpense_TransactionNotOwnedOrMissing_ReturnsNotFound() {
+        when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> expenseServiceImpl.deleteExpense(99L)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals("Transaction not found", exception.getReason());
+        verify(transactionRepository).findByIdAndUser(99L, mockUser);
+    }
+
+    @Test
+    void createManualExpense_InvalidRequest_ReturnsBadRequestForEveryValidationBranch() {
+        assertInvalidManualExpense(null);
+        assertInvalidManualExpense(new ExpenseRequest(null, 1.0, "Food", "Cafe"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), null, "Food", "Cafe"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 0.0, "Food", "Cafe"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, null, "Cafe"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, " ", "Cafe"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", null));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", " "));
+    }
+
+    private ExpenseRequest validExpenseRequest() {
+        return new ExpenseRequest(LocalDate.of(2026, 4, 1), 75000.0, " Food ", " Cafe ");
+    }
+
+    private void assertInvalidManualExpense(ExpenseRequest request) {
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> expenseServiceImpl.createManualExpense(request)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Date, positive amount, category, and merchant are required", exception.getReason());
     }
 }

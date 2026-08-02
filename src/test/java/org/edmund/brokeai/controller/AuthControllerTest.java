@@ -53,7 +53,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("User berhasil didaftarkan"));
+                .andExpect(jsonPath("$.message").value("User registered successfully"));
     }
 
     @Test

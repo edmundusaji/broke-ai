@@ -24,6 +24,10 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
         "/api/v1/expense/receipt",
         "/api/v1/expense/notification"
     );
+    private static final Set<String> AUTH_ENDPOINTS = Set.of(
+        "/api/v1/auth/login",
+        "/api/v1/auth/register"
+    );
 
     private final RateLimitingService rateLimitingService;
 
@@ -33,7 +37,13 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
         HttpServletResponse response,
         FilterChain filterChain
     ) throws ServletException, IOException {
-        if (isAiEndpoint(request)) {
+        String requestPath = getRequestPath(request);
+        if (isAuthEndpoint(requestPath, request)) {
+            if (!rateLimitingService.tryConsumeAuth(request.getRemoteAddr())) {
+                response.sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many authentication attempts");
+                return;
+            }
+        } else if (AI_ENDPOINTS.contains(requestPath)) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.getPrincipal() instanceof AppUser user) {
                 if (!rateLimitingService.tryConsume(user.getId())) {
@@ -46,12 +56,16 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isAiEndpoint(HttpServletRequest request) {
+    private boolean isAuthEndpoint(String requestPath, HttpServletRequest request) {
+        return "POST".equalsIgnoreCase(request.getMethod()) && AUTH_ENDPOINTS.contains(requestPath);
+    }
+
+    private String getRequestPath(HttpServletRequest request) {
         String requestPath = request.getRequestURI();
         String contextPath = request.getContextPath();
         if (contextPath != null && !contextPath.isBlank() && requestPath.startsWith(contextPath)) {
             requestPath = requestPath.substring(contextPath.length());
         }
-        return AI_ENDPOINTS.contains(requestPath);
+        return requestPath;
     }
 }

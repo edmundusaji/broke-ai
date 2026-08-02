@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String token = authorization.substring(BEARER_PREFIX.length());
                 Long userId = jwtService.extractUserId(token);
                 AppUser user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("User token tidak ditemukan"));
+                    .orElseThrow(() -> new IllegalArgumentException("User for token was not found"));
 
                 UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(user, null, List.of());

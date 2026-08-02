@@ -29,10 +29,10 @@ public class AuthServiceImpl implements AuthService {
         String email = request.email().trim().toLowerCase();
 
         if (userRepository.existsByUsername(username)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username sudah dipakai");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already in use");
         }
         if (userRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email sudah dipakai");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
         }
 
         AppUser user = new AppUser();
@@ -47,14 +47,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         if (request == null || isBlank(request.username()) || isBlank(request.password()) /* true hits = 0*/) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Username atau password salah");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
 
         AppUser user = userRepository.findByUsername(request.username().trim())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Username atau password salah"));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password"));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Username atau password salah");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
 
         String token = jwtService.generateToken(user);
@@ -69,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
             || isBlank(request.email()) // true hits = 0
             || isBlank(request.password())) // true hits = 0
             {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data register belum lengkap");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration data is incomplete");
         }
     }
 

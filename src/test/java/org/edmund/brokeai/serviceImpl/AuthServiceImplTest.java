@@ -65,7 +65,7 @@ class AuthServiceImplTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.register(requestBlankName));
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertTrue(exception.getReason().contains("Data register belum lengkap"));
+        assertTrue(exception.getReason().contains("Registration data is incomplete"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class AuthServiceImplTest {
                 () -> authService.register(request));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertTrue(exception.getReason().contains("Username sudah dipakai"));
+        assertTrue(exception.getReason().contains("Username is already in use"));
         verify(userRepository, never()).save(any()); // Pastikan tidak ada data yang disimpan
     }
 
@@ -91,7 +91,7 @@ class AuthServiceImplTest {
                 () -> authService.register(request));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertTrue(exception.getReason().contains("Email sudah dipakai"));
+        assertTrue(exception.getReason().contains("Email is already in use"));
         verify(userRepository, never()).save(any());
     }
 
