@@ -24,10 +24,13 @@ public class AppUser {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
     @JsonIgnore
-    @Column(nullable = false)
+    @Column
     private String password;
+
+    @Column(name = "is_guest", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isGuest = false;
 }

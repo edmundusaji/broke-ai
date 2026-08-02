@@ -38,6 +38,7 @@ public class JwtService {
         payload.put("sub", user.getUsername());
         payload.put("userId", user.getId());
         payload.put("username", user.getUsername());
+        payload.put("role", Boolean.TRUE.equals(user.getIsGuest()) ? "ROLE_GUEST" : "ROLE_USER");
         payload.put("iat", now);
         payload.put("exp", now + expirationSeconds);
 

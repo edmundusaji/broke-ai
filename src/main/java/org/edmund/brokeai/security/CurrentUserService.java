@@ -14,6 +14,6 @@ public class CurrentUserService {
         if (authentication != null && authentication.getPrincipal() instanceof AppUser user) {
             return user;
         }
-        throw new AccessDeniedException("User belum terautentikasi");
+        throw new AccessDeniedException("User is not authenticated");
     }
 }
