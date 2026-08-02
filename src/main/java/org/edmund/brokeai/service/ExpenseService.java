@@ -1,6 +1,7 @@
 package org.edmund.brokeai.service;
 
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
+import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.Transaction;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,6 +13,9 @@ import java.util.List;
 public interface ExpenseService {
     Transaction saveReceipt(MultipartFile file);
     Transaction saveNotification(String notification);
+    Transaction createManualExpense(ExpenseRequest request);
+    Transaction updateExpense(Long id, ExpenseRequest request);
+    void deleteExpense(Long id);
     ExpenseSummaryResponse getExpenseSummary(int month, int year);
     List<Transaction> getExpenseHistory(int month, int year);
 }

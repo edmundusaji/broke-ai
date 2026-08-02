@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
+import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
 import org.springframework.http.MediaType;
@@ -24,8 +25,8 @@ public class ExpenseController {
     private final ExpenseService expenseService;
 
     @GetMapping("/summary")
-    @Operation(summary = "Mendapatkan Ringkasan Pengeluaran per Bulan",
-        description = "Mengembalikan total pengeluaran dan rincian per kategori. Jika month/year kosong, menggunakan bulan ini.")
+    @Operation(summary = "Get monthly expense summary",
+        description = "Returns total expenses and category details. Defaults to the current month when month/year are omitted.")
     public ResponseEntity<ExpenseSummaryResponse> getSummary(
         @RequestParam(required = false) Integer month,
         @RequestParam(required = false) Integer year) {
@@ -37,14 +38,14 @@ public class ExpenseController {
             ExpenseSummaryResponse summary = expenseService.getExpenseSummary(month, year);
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
-            System.err.println("Error di Controller (Summary): " + e.getMessage());
+            System.err.println("Error in expense summary controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
 
     @GetMapping("/history")
-    @Operation(summary = "Mendapatkan Riwayat Transaksi per Bulan",
-        description = "Mengembalikan transaksi milik user login, diurutkan dari tanggal terbaru.")
+    @Operation(summary = "Get monthly transaction history",
+        description = "Returns the authenticated user's transactions, ordered by most recent date.")
     public ResponseEntity<List<Transaction>> getHistory(
         @RequestParam(required = false) Integer month,
         @RequestParam(required = false) Integer year) {
@@ -56,7 +57,7 @@ public class ExpenseController {
             List<Transaction> history = expenseService.getExpenseHistory(month, year);
             return ResponseEntity.ok(history);
         } catch (Exception e) {
-            System.err.println("Error di Controller (History): " + e.getMessage());
+            System.err.println("Error in expense history controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -72,7 +73,7 @@ public class ExpenseController {
             Transaction response = expenseService.saveReceipt(file);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("Error di Controller: " + e.getMessage());
+            System.err.println("Error in receipt controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -82,7 +83,7 @@ public class ExpenseController {
 
     @PostMapping(value = "/notification", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Process Notification",
-            description = "Accept Copy&Paste text notifications from: BCA, OVO, Gopay, dll")
+            description = "Accepts pasted payment notifications from services such as BCA, OVO, and GoPay.")
     public ResponseEntity<Transaction> processNotification(@RequestBody NotificationRequest request) {
         if (request.text() == null || request.text().isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -91,8 +92,30 @@ public class ExpenseController {
             Transaction savedData = expenseService.saveNotification(request.text());
             return ResponseEntity.ok(savedData);
         } catch (Exception e) {
-            System.err.println("Error di Controller (Notification): " + e.getMessage());
+            System.err.println("Error in notification controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @PostMapping(value = "/manual", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Create a manual transaction")
+    public ResponseEntity<Transaction> createManualExpense(@RequestBody ExpenseRequest request) {
+        return ResponseEntity.ok(expenseService.createManualExpense(request));
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Update a transaction")
+    public ResponseEntity<Transaction> updateExpense(
+        @PathVariable Long id,
+        @RequestBody ExpenseRequest request
+    ) {
+        return ResponseEntity.ok(expenseService.updateExpense(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a transaction")
+    public ResponseEntity<Void> deleteExpense(@PathVariable Long id) {
+        expenseService.deleteExpense(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -10,13 +10,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    @Query("SELECT new org.edmund.brokeai.dto.CategorySummaryDTO(COALESCE(t.kategori, 'Lain-lain'), SUM(t.jumlah)) " +
+    @Query("SELECT new org.edmund.brokeai.dto.CategorySummaryDTO(COALESCE(t.kategori, 'Other'), SUM(t.jumlah)) " +
         "FROM Transaction t " +
         "WHERE t.user = :user AND t.tanggal >= :startDate AND t.tanggal <= :endDate " +
-        "GROUP BY COALESCE(t.kategori, 'Lain-lain') " +
+        "GROUP BY COALESCE(t.kategori, 'Other') " +
         "ORDER BY SUM(t.jumlah) DESC")
     List<CategorySummaryDTO> getExpenseSummaryByUserAndDateRange(
         @Param("user") AppUser user,
@@ -29,4 +30,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         LocalDateTime startDate,
         LocalDateTime endDate
     );
+
+    Optional<Transaction> findByIdAndUser(Long id, AppUser user);
 }

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.AiExpenseResponse;
 import org.edmund.brokeai.dto.CategorySummaryDTO;
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
+import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
@@ -12,6 +13,8 @@ import org.edmund.brokeai.service.ExpenseService;
 import org.edmund.brokeai.service.GeminiService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,6 +59,37 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
+    public Transaction createManualExpense(ExpenseRequest request) {
+        validateExpenseRequest(request);
+
+        Transaction transaction = new Transaction();
+        applyExpenseDetails(transaction, request);
+        transaction.setTipeInput("MANUAL");
+        transaction.setStatusValidasi("CONFIRMED");
+        transaction.setUser(currentUserService.getCurrentUser());
+        return transactionRepository.save(transaction);
+    }
+
+    @Override
+    public Transaction updateExpense(Long id, ExpenseRequest request) {
+        validateExpenseRequest(request);
+
+        AppUser currentUser = currentUserService.getCurrentUser();
+        Transaction transaction = transactionRepository.findByIdAndUser(id, currentUser)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        applyExpenseDetails(transaction, request);
+        return transactionRepository.save(transaction);
+    }
+
+    @Override
+    public void deleteExpense(Long id) {
+        AppUser currentUser = currentUserService.getCurrentUser();
+        Transaction transaction = transactionRepository.findByIdAndUser(id, currentUser)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        transactionRepository.delete(transaction);
+    }
+
+    @Override
     public ExpenseSummaryResponse getExpenseSummary(int month, int year) {
         AppUser currentUser = currentUserService.getCurrentUser();
         DateRange dateRange = buildMonthDateRange(month, year);
@@ -97,6 +131,27 @@ public class ExpenseServiceImpl implements ExpenseService {
         transaction.setTanggal(parseDateAndTime(aiResponse.getTanggal(), aiResponse.getWaktu()));
 
         return transaction;
+    }
+
+    private void applyExpenseDetails(Transaction transaction, ExpenseRequest request) {
+        transaction.setTanggal(request.date().atStartOfDay());
+        transaction.setJumlah(request.amount());
+        transaction.setKategori(request.category().trim());
+        transaction.setMerchant(request.merchant().trim());
+    }
+
+    private void validateExpenseRequest(ExpenseRequest request) {
+        if (request == null || request.date() == null || request.amount() == null
+            || request.amount() <= 0 || isBlank(request.category()) || isBlank(request.merchant())) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Date, positive amount, category, and merchant are required"
+            );
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private DateRange buildMonthDateRange(int month, int year) {
