@@ -26,7 +26,8 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
     );
     private static final Set<String> AUTH_ENDPOINTS = Set.of(
         "/api/v1/auth/login",
-        "/api/v1/auth/register"
+        "/api/v1/auth/register",
+        "/api/v1/auth/guest-login"
     );
 
     private final RateLimitingService rateLimitingService;

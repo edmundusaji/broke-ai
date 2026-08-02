@@ -53,6 +53,24 @@ class JwtServiceTest {
     }
 
     @Test
+    void generateToken_GuestUser_ContainsGuestRoleClaim() throws Exception {
+        AppUser guest = new AppUser();
+        guest.setId(100L);
+        guest.setUsername("guest_123");
+        guest.setIsGuest(true);
+
+        String token = jwtService.generateToken(guest);
+        String encodedPayload = token.split("\\.")[1];
+        Map<?, ?> claims = new ObjectMapper().readValue(
+            Base64.getUrlDecoder().decode(encodedPayload),
+            Map.class
+        );
+
+        assertEquals("ROLE_GUEST", claims.get("role"));
+        assertEquals(100, claims.get("userId"));
+    }
+
+    @Test
     void extractUserId_InvalidFormat_ThrowsException() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> jwtService.extractUserId("header.payload"));

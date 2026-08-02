@@ -82,6 +82,24 @@ class JwtAuthenticationFilterTest {
 
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
         assertEquals(mockUser, SecurityContextHolder.getContext().getAuthentication().getPrincipal());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+            .anyMatch(authority -> authority.getAuthority().equals("ROLE_USER")));
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilterInternal_ValidGuestToken_SetsGuestAuthority() throws ServletException, IOException {
+        when(request.getHeader("Authorization")).thenReturn("Bearer guest.token.here");
+        when(jwtService.extractUserId("guest.token.here")).thenReturn(100L);
+
+        AppUser guest = new AppUser();
+        guest.setIsGuest(true);
+        when(userRepository.findById(100L)).thenReturn(Optional.of(guest));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+            .anyMatch(authority -> authority.getAuthority().equals("ROLE_GUEST")));
         verify(filterChain).doFilter(request, response);
     }
 

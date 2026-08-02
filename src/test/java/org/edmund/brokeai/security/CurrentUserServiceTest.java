@@ -49,7 +49,7 @@ class CurrentUserServiceTest {
         AccessDeniedException ex = assertThrows(AccessDeniedException.class,
                 () -> currentUserService.getCurrentUser());
 
-        assertEquals("User belum terautentikasi", ex.getMessage());
+        assertEquals("User is not authenticated", ex.getMessage());
     }
 
     @Test
@@ -60,6 +60,6 @@ class CurrentUserServiceTest {
         AccessDeniedException ex = assertThrows(AccessDeniedException.class,
                 () -> currentUserService.getCurrentUser());
 
-        assertEquals("User belum terautentikasi", ex.getMessage());
+        assertEquals("User is not authenticated", ex.getMessage());
     }
 }

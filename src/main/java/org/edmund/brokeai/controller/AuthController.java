@@ -5,6 +5,7 @@ import org.edmund.brokeai.dto.AuthMessageResponse;
 import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
+import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,5 +29,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/guest-login")
+    public ResponseEntity<LoginResponse> guestLogin() {
+        return ResponseEntity.ok(authService.guestLogin());
+    }
+
+    @PostMapping("/upgrade-guest")
+    public ResponseEntity<LoginResponse> upgradeGuest(@RequestBody UpgradeGuestRequest request) {
+        return ResponseEntity.ok(authService.upgradeGuest(request));
     }
 }

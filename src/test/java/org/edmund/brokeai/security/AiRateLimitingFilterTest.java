@@ -158,4 +158,18 @@ class AiRateLimitingFilterTest {
         verify(response).sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many authentication attempts");
         verify(filterChain, never()).doFilter(request, response);
     }
+
+    @Test
+    void doFilterInternal_GuestLoginEndpoint_AppliesIpRateLimit() throws ServletException, IOException {
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/guest-login");
+        when(request.getContextPath()).thenReturn("");
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(rateLimitingService.tryConsumeAuth("203.0.113.10")).thenReturn(true);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(rateLimitingService).tryConsumeAuth("203.0.113.10");
+        verify(filterChain).doFilter(request, response);
+    }
 }

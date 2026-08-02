@@ -264,6 +264,27 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
+    void createManualExpense_GuestUser_ReturnsOk() throws Exception {
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/v1/expense/manual")
+                        .header("Authorization", guestAuthHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-03-28\",\"amount\":25000,\"category\":\"Food\",\"merchant\":\"Cafe\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tipeInput").value("MANUAL"));
+    }
+
+    @Test
+    void processNotification_GuestUser_ReturnsForbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/expense/notification")
+                        .header("Authorization", guestAuthHeader())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"Payment of 25000 at Cafe\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void updateExpense_TransactionBelongsToUser_ReturnsUpdatedTransaction() throws Exception {
         Transaction transaction = new Transaction();
         transaction.setId(500L);
@@ -366,5 +387,15 @@ class ExpenseControllerIntegrationTest {
 
     private String authHeader() {
         return "Bearer " + jwtService.generateToken(mockUser);
+    }
+
+    private String guestAuthHeader() {
+        AppUser guest = new AppUser();
+        guest.setId(2L);
+        guest.setNamaLengkap("Guest User");
+        guest.setUsername("guest_123");
+        guest.setIsGuest(true);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(guest));
+        return "Bearer " + jwtService.generateToken(guest);
     }
 }

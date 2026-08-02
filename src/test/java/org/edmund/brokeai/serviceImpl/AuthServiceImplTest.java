@@ -3,9 +3,11 @@ package org.edmund.brokeai.serviceImpl;
 import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
+import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.security.JwtService;
+import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.serviceimpl.AuthServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +35,9 @@ class AuthServiceImplTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private CurrentUserService currentUserService;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -113,6 +118,7 @@ class AuthServiceImplTest {
         assertNotNull(response);
         assertEquals("mock-jwt-token", response.token());
         assertEquals(3600L, response.expiresIn());
+        assertFalse(response.isGuest());
         assertEquals("Edmundus Aji", response.user().name());
     }
 
@@ -178,5 +184,125 @@ class AuthServiceImplTest {
 
         LoginRequest nullPassword = new LoginRequest("edmundus", null);
         assertThrows(ResponseStatusException.class, () -> authService.login(nullPassword));
+    }
+
+    @Test
+    void login_GuestAccount_ThrowsUnauthorized() {
+        AppUser guest = new AppUser();
+        guest.setIsGuest(true);
+        when(userRepository.findByUsername("guest_123")).thenReturn(Optional.of(guest));
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.login(new LoginRequest("guest_123", "password"))
+        );
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(passwordEncoder, never()).matches(anyString(), any());
+    }
+
+    @Test
+    void guestLogin_CreatesAnonymousUserAndReturnsSession() {
+        when(userRepository.save(any(AppUser.class))).thenAnswer(invocation -> {
+            AppUser guest = invocation.getArgument(0);
+            guest.setId(42L);
+            return guest;
+        });
+        when(jwtService.generateToken(any(AppUser.class))).thenReturn("guest-token");
+        when(jwtService.getExpirationSeconds()).thenReturn(3600L);
+
+        LoginResponse response = authService.guestLogin();
+
+        assertEquals("guest-token", response.token());
+        assertTrue(response.isGuest());
+        assertTrue(response.username().startsWith("guest_"));
+        assertEquals("Guest User", response.user().name());
+        assertNull(response.user().email());
+        verify(userRepository).save(argThat(user ->
+            Boolean.TRUE.equals(user.getIsGuest())
+                && user.getEmail() == null
+                && user.getPassword() == null
+        ));
+    }
+
+    @Test
+    void upgradeGuest_ValidRequest_UpdatesSameUserAndPreservesIdentity() {
+        AppUser guest = new AppUser();
+        guest.setId(42L);
+        guest.setUsername("guest_123");
+        guest.setIsGuest(true);
+        when(currentUserService.getCurrentUser()).thenReturn(guest);
+        when(userRepository.existsByEmail("aji@mail.com")).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
+        when(userRepository.save(guest)).thenReturn(guest);
+        when(jwtService.generateToken(guest)).thenReturn("upgraded-token");
+        when(jwtService.getExpirationSeconds()).thenReturn(3600L);
+
+        LoginResponse response = authService.upgradeGuest(
+            new UpgradeGuestRequest(" Edmundus Aji ", " AJI@mail.com ", "password123")
+        );
+
+        assertEquals(42L, guest.getId());
+        assertEquals("guest_123", guest.getUsername());
+        assertEquals("Edmundus Aji", guest.getNamaLengkap());
+        assertEquals("aji@mail.com", guest.getEmail());
+        assertEquals("encoded-password", guest.getPassword());
+        assertFalse(guest.getIsGuest());
+        assertFalse(response.isGuest());
+        assertEquals("upgraded-token", response.token());
+        verify(userRepository).save(guest);
+    }
+
+    @Test
+    void upgradeGuest_NonGuestUser_ThrowsBadRequest() {
+        AppUser user = new AppUser();
+        user.setIsGuest(false);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.upgradeGuest(validUpgradeRequest())
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Current user is not a guest", exception.getReason());
+    }
+
+    @Test
+    void upgradeGuest_EmailAlreadyUsed_ThrowsBadRequest() {
+        AppUser guest = new AppUser();
+        guest.setIsGuest(true);
+        when(currentUserService.getCurrentUser()).thenReturn(guest);
+        when(userRepository.existsByEmail("aji@mail.com")).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.upgradeGuest(validUpgradeRequest())
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Email is already in use", exception.getReason());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void upgradeGuest_IncompletePayload_ThrowsBadRequestForAllBranches() {
+        assertInvalidUpgrade(null);
+        assertInvalidUpgrade(new UpgradeGuestRequest(" ", "aji@mail.com", "password123"));
+        assertInvalidUpgrade(new UpgradeGuestRequest("Aji", null, "password123"));
+        assertInvalidUpgrade(new UpgradeGuestRequest("Aji", "aji@mail.com", " "));
+    }
+
+    private UpgradeGuestRequest validUpgradeRequest() {
+        return new UpgradeGuestRequest("Aji", "aji@mail.com", "password123");
+    }
+
+    private void assertInvalidUpgrade(UpgradeGuestRequest request) {
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.upgradeGuest(request)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Guest upgrade data is incomplete", exception.getReason());
     }
 }
