@@ -6,14 +6,21 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class CurrentUserService {
 
     public AppUser getCurrentUser() {
+        return getCurrentUserIfAuthenticated()
+            .orElseThrow(() -> new AccessDeniedException("User is not authenticated"));
+    }
+
+    public Optional<AppUser> getCurrentUserIfAuthenticated() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof AppUser user) {
-            return user;
+            return Optional.of(user);
         }
-        throw new AccessDeniedException("User is not authenticated");
+        return Optional.empty();
     }
 }

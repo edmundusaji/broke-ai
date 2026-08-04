@@ -63,6 +63,17 @@ public class ExpenseController {
         }
     }
 
+    @GetMapping("/recent")
+    @Operation(summary = "Get five most recent transactions for the dashboard")
+    public ResponseEntity<List<Transaction>> getRecentExpenses() {
+        try {
+            return ResponseEntity.ok(expenseService.getRecentExpenses());
+        } catch (Exception e) {
+            System.err.println("Error in recent expenses controller: " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     @PostMapping(value = "/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload and Process Receipt",
             description = "Support File Type: .jpg/.jpeg | .png | .webp | .heic/.heif")

@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
@@ -291,6 +292,17 @@ class ExpenseServiceImplTests {
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         assertEquals("Transaction not found", exception.getReason());
         verify(transactionRepository).findByIdAndUser(99L, mockUser);
+    }
+
+    @Test
+    void getRecentExpenses_ReturnsFiveMostRecentTransactionsForCurrentUser() {
+        List<Transaction> recent = List.of(mockTransaction);
+        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(mockUser)).thenReturn(recent);
+
+        List<Transaction> result = expenseServiceImpl.getRecentExpenses();
+
+        assertSame(recent, result);
+        verify(transactionRepository).findTop5ByUserOrderByTanggalDesc(mockUser);
     }
 
     @Test

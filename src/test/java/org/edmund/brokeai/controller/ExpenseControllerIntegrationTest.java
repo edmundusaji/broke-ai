@@ -156,6 +156,32 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
+    void getRecentExpenses_ReturnsFiveMostRecentTransactions() throws Exception {
+        Transaction transaction = new Transaction();
+        transaction.setId(301L);
+        transaction.setMerchant("Latest Merchant");
+        transaction.setTanggal(LocalDateTime.of(2026, 4, 1, 12, 0));
+        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(mockUser))
+            .thenReturn(List.of(transaction));
+
+        mockMvc.perform(get("/api/v1/expense/recent")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(301L))
+                .andExpect(jsonPath("$[0].merchant").value("Latest Merchant"));
+    }
+
+    @Test
+    void getRecentExpenses_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
+        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(any()))
+            .thenThrow(new RuntimeException("Simulated DB Error For Recent Expenses"));
+
+        mockMvc.perform(get("/api/v1/expense/recent")
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
     void processReceipt_Success_IntegrationTest() throws Exception {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
             Transaction savedData = invocation.getArgument(0);

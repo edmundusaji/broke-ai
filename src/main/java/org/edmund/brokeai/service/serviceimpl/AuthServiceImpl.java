@@ -33,15 +33,13 @@ public class AuthServiceImpl implements AuthService {
 
         String username = request.username().trim();
         String email = request.email().trim().toLowerCase();
+        AppUser guestUser = currentUserService.getCurrentUserIfAuthenticated()
+            .filter(user -> Boolean.TRUE.equals(user.getIsGuest()))
+            .orElse(null);
 
-        if (userRepository.existsByUsername(username)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already in use");
-        }
-        if (userRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
-        }
+        validateUniqueCredentials(username, email, guestUser);
 
-        AppUser user = new AppUser();
+        AppUser user = guestUser == null ? new AppUser() : guestUser;
         user.setNamaLengkap(request.namaLengkap().trim());
         user.setUsername(username);
         user.setEmail(email);
@@ -135,6 +133,22 @@ public class AuthServiceImpl implements AuthService {
             || isBlank(request.email())
             || isBlank(request.password())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guest upgrade data is incomplete");
+        }
+    }
+
+    private void validateUniqueCredentials(String username, String email, AppUser guestUser) {
+        boolean usernameExists = guestUser == null
+            ? userRepository.existsByUsername(username)
+            : userRepository.existsByUsernameAndIdNot(username, guestUser.getId());
+        if (usernameExists) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already in use");
+        }
+
+        boolean emailExists = guestUser == null
+            ? userRepository.existsByEmail(email)
+            : userRepository.existsByEmailAndIdNot(email, guestUser.getId());
+        if (emailExists) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
         }
     }
 
