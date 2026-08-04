@@ -5,6 +5,8 @@ import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.GeminiService;
 import org.edmund.brokeai.service.serviceimpl.ExpenseServiceImpl;
@@ -41,6 +43,9 @@ class ExpenseServiceImplTests {
 
     @Mock
     private CurrentUserService currentUserService;
+
+    @Mock
+    private UserRepository userRepository;
 
     private MultipartFile mockFile;
     private AiExpenseResponse mockAiResponse;
@@ -298,6 +303,61 @@ class ExpenseServiceImplTests {
         assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, " ", "Cafe"));
         assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", null));
         assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", " "));
+    }
+
+    @Test
+    void aiOperations_GuestUser_ConsumesTwoSharedTrialsThenBlocks() {
+        mockUser.setIsGuest(true);
+        mockUser.setAiTrialCount(2);
+        when(userRepository.consumeGuestAiTrial(10L)).thenReturn(1, 1, 0);
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+        when(geminiService.prosesNotifikasi("Payment notification")).thenReturn(mockAiResponse);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        expenseServiceImpl.saveReceipt(mockFile);
+        assertEquals(1, mockUser.getAiTrialCount());
+
+        expenseServiceImpl.saveNotification("Payment notification");
+        assertEquals(0, mockUser.getAiTrialCount());
+
+        GuestAiTrialLimitException exception = assertThrows(
+            GuestAiTrialLimitException.class,
+            () -> expenseServiceImpl.saveReceipt(mockFile)
+        );
+        assertEquals(GuestAiTrialLimitException.ERROR_CODE, "GUEST_AI_LIMIT_REACHED");
+        assertEquals(GuestAiTrialLimitException.ERROR_MESSAGE, exception.getMessage());
+        verify(transactionRepository, times(2)).save(any(Transaction.class));
+        verify(userRepository, times(3)).consumeGuestAiTrial(10L);
+        verify(geminiService, times(1)).receiptProcess(mockFile);
+    }
+
+    @Test
+    void saveReceipt_GuestAiProcessingFails_RestoresReservedTrial() {
+        mockUser.setIsGuest(true);
+        mockUser.setAiTrialCount(2);
+        when(userRepository.consumeGuestAiTrial(10L)).thenReturn(1);
+        when(userRepository.restoreGuestAiTrial(10L)).thenReturn(1);
+        when(geminiService.receiptProcess(mockFile)).thenReturn(null);
+
+        assertThrows(RuntimeException.class, () -> expenseServiceImpl.saveReceipt(mockFile));
+
+        assertEquals(2, mockUser.getAiTrialCount());
+        verify(userRepository).consumeGuestAiTrial(10L);
+        verify(userRepository).restoreGuestAiTrial(10L);
+    }
+
+    @Test
+    void saveReceipt_GuestWithNullLocalCounter_UsesReservedTrialSafely() {
+        mockUser.setIsGuest(true);
+        mockUser.setAiTrialCount(null);
+        when(userRepository.consumeGuestAiTrial(10L)).thenReturn(1);
+        when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        expenseServiceImpl.saveReceipt(mockFile);
+
+        assertEquals(0, mockUser.getAiTrialCount());
+        verify(transactionRepository).save(any(Transaction.class));
     }
 
     private ExpenseRequest validExpenseRequest() {

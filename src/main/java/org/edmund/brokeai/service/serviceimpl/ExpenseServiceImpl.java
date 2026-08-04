@@ -8,6 +8,8 @@ import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.ExpenseService;
 import org.edmund.brokeai.service.GeminiService;
@@ -23,6 +25,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -31,31 +34,36 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GeminiService geminiService;
     private final TransactionRepository transactionRepository;
     private final CurrentUserService currentUserService;
+    private final UserRepository userRepository;
 
     @Override
     public Transaction saveReceipt(MultipartFile file) {
         AppUser currentUser = currentUserService.getCurrentUser();
-        AiExpenseResponse aiResponse = geminiService.receiptProcess(file);
+        return executeAiOperation(currentUser, () -> {
+            AiExpenseResponse aiResponse = geminiService.receiptProcess(file);
 
-        if (aiResponse == null || aiResponse.getTotal() == null) {
-            throw new RuntimeException("Failed to process receipt");
-        }
+            if (aiResponse == null || aiResponse.getTotal() == null) {
+                throw new RuntimeException("Failed to process receipt");
+            }
 
-        Transaction transaction = mapToEntity(aiResponse, "RECEIPT", currentUser);
-        return transactionRepository.save(transaction);
+            Transaction transaction = mapToEntity(aiResponse, "RECEIPT", currentUser);
+            return transactionRepository.save(transaction);
+        });
     }
 
     @Override
     public Transaction saveNotification(String notification) {
         AppUser currentUser = currentUserService.getCurrentUser();
-        AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
+        return executeAiOperation(currentUser, () -> {
+            AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
 
-        if (aiResponse == null || aiResponse.getTotal() == null) {
-            throw new RuntimeException("Failed to process notifications");
-        }
+            if (aiResponse == null || aiResponse.getTotal() == null) {
+                throw new RuntimeException("Failed to process notifications");
+            }
 
-        Transaction transaction = mapToEntity(aiResponse, "NOTIFICATION", currentUser);
-        return transactionRepository.save(transaction);
+            Transaction transaction = mapToEntity(aiResponse, "NOTIFICATION", currentUser);
+            return transactionRepository.save(transaction);
+        });
     }
 
     @Override
@@ -152,6 +160,26 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private Transaction executeAiOperation(AppUser user, Supplier<Transaction> operation) {
+        if (!Boolean.TRUE.equals(user.getIsGuest())) {
+            return operation.get();
+        }
+
+        if (userRepository.consumeGuestAiTrial(user.getId()) == 0) {
+            throw new GuestAiTrialLimitException();
+        }
+
+        try {
+            Transaction result = operation.get();
+            int currentTrials = user.getAiTrialCount() == null ? 1 : user.getAiTrialCount();
+            user.setAiTrialCount(Math.max(0, currentTrials - 1));
+            return result;
+        } catch (RuntimeException | Error exception) {
+            userRepository.restoreGuestAiTrial(user.getId());
+            throw exception;
+        }
     }
 
     private DateRange buildMonthDateRange(int month, int year) {

@@ -4,6 +4,7 @@ import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
+import org.edmund.brokeai.dto.CurrentUserResponse;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.security.JwtService;
@@ -56,7 +57,8 @@ class AuthServiceImplTest {
                 user.getNamaLengkap().equals("Edmundus Aji") &&
                         user.getUsername().equals("edmundus") &&
                         user.getEmail().equals("aji@mail.com") &&
-                        user.getPassword().equals("encodedPassword")
+                        user.getPassword().equals("encodedPassword") &&
+                        user.getAiTrialCount() == 0
         ));
     }
 
@@ -215,6 +217,7 @@ class AuthServiceImplTest {
 
         assertEquals("guest-token", response.token());
         assertTrue(response.isGuest());
+        assertEquals(2, response.remainingAiTrials());
         assertTrue(response.username().startsWith("guest_"));
         assertEquals("Guest User", response.user().name());
         assertNull(response.user().email());
@@ -248,7 +251,9 @@ class AuthServiceImplTest {
         assertEquals("aji@mail.com", guest.getEmail());
         assertEquals("encoded-password", guest.getPassword());
         assertFalse(guest.getIsGuest());
+        assertEquals(0, guest.getAiTrialCount());
         assertFalse(response.isGuest());
+        assertEquals(0, response.remainingAiTrials());
         assertEquals("upgraded-token", response.token());
         verify(userRepository).save(guest);
     }
@@ -291,6 +296,48 @@ class AuthServiceImplTest {
         assertInvalidUpgrade(new UpgradeGuestRequest(" ", "aji@mail.com", "password123"));
         assertInvalidUpgrade(new UpgradeGuestRequest("Aji", null, "password123"));
         assertInvalidUpgrade(new UpgradeGuestRequest("Aji", "aji@mail.com", " "));
+    }
+
+    @Test
+    void getCurrentUser_Guest_ReturnsRoleAndRemainingTrials() {
+        AppUser guest = new AppUser();
+        guest.setUsername("guest_123");
+        guest.setNamaLengkap("Guest User");
+        guest.setIsGuest(true);
+        guest.setAiTrialCount(1);
+        when(currentUserService.getCurrentUser()).thenReturn(guest);
+
+        CurrentUserResponse response = authService.getCurrentUser();
+
+        assertEquals("ROLE_GUEST", response.role());
+        assertEquals(1, response.remainingAiTrials());
+    }
+
+    @Test
+    void getCurrentUser_RegisteredUser_ReturnsUserRoleAndNoTrialQuota() {
+        AppUser user = new AppUser();
+        user.setUsername("edmundus");
+        user.setNamaLengkap("Edmundus");
+        user.setIsGuest(false);
+        user.setAiTrialCount(null);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        CurrentUserResponse response = authService.getCurrentUser();
+
+        assertEquals("ROLE_USER", response.role());
+        assertEquals(0, response.remainingAiTrials());
+    }
+
+    @Test
+    void getCurrentUser_GuestWithNullTrialCount_ReturnsZero() {
+        AppUser guest = new AppUser();
+        guest.setIsGuest(true);
+        guest.setAiTrialCount(null);
+        when(currentUserService.getCurrentUser()).thenReturn(guest);
+
+        CurrentUserResponse response = authService.getCurrentUser();
+
+        assertEquals(0, response.remainingAiTrials());
     }
 
     private UpgradeGuestRequest validUpgradeRequest() {

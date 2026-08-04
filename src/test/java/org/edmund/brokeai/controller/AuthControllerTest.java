@@ -5,6 +5,7 @@ import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
+import org.edmund.brokeai.dto.CurrentUserResponse;
 import org.edmund.brokeai.service.AuthService;
 import org.edmund.brokeai.service.RateLimitingService;
 import org.edmund.brokeai.security.JwtService;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,7 +63,7 @@ class AuthControllerTest {
     void login_Success_ReturnsOk() throws Exception {
         LoginRequest request = new LoginRequest("edmundus", "password123");
         LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo("Edmundus Aji", "aji@mail.com");
-        LoginResponse response = new LoginResponse("mock-jwt-token", 3600, "edmundus", false, userInfo);
+        LoginResponse response = new LoginResponse("mock-jwt-token", 3600, "edmundus", false, 0, userInfo);
 
         Mockito.when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
@@ -82,6 +84,7 @@ class AuthControllerTest {
             3600,
             "guest_123",
             true,
+            2,
             new LoginResponse.UserInfo("Guest User", null)
         );
         Mockito.when(authService.guestLogin()).thenReturn(response);
@@ -91,6 +94,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.token").value("guest-token"))
                 .andExpect(jsonPath("$.username").value("guest_123"))
                 .andExpect(jsonPath("$.isGuest").value(true))
+                .andExpect(jsonPath("$.remaining_ai_trials").value(2))
                 .andExpect(jsonPath("$.user.name").value("Guest User"));
     }
 
@@ -102,6 +106,7 @@ class AuthControllerTest {
             3600,
             "guest_123",
             false,
+            0,
             new LoginResponse.UserInfo("Edmundus Aji", "aji@mail.com")
         );
         Mockito.when(authService.upgradeGuest(any(UpgradeGuestRequest.class))).thenReturn(response);
@@ -113,5 +118,18 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.token").value("upgraded-token"))
                 .andExpect(jsonPath("$.isGuest").value(false))
                 .andExpect(jsonPath("$.user.email").value("aji@mail.com"));
+    }
+
+    @Test
+    void getCurrentUser_Guest_ReturnsRemainingTrials() throws Exception {
+        CurrentUserResponse response = new CurrentUserResponse(
+            "guest_123", "Guest User", null, "ROLE_GUEST", 1
+        );
+        Mockito.when(authService.getCurrentUser()).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/auth/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("ROLE_GUEST"))
+                .andExpect(jsonPath("$.remaining_ai_trials").value(1));
     }
 }

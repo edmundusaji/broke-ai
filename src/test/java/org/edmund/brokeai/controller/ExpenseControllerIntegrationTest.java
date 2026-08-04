@@ -276,12 +276,19 @@ class ExpenseControllerIntegrationTest {
     }
 
     @Test
-    void processNotification_GuestUser_ReturnsForbidden() throws Exception {
+    void processNotification_GuestWithNoTrials_ReturnsStructuredForbidden() throws Exception {
+        when(userRepository.consumeGuestAiTrial(2L)).thenReturn(0);
+
         mockMvc.perform(post("/api/v1/expense/notification")
                         .header("Authorization", guestAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\":\"Payment of 25000 at Cafe\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.code").value("GUEST_AI_LIMIT_REACHED"))
+                .andExpect(jsonPath("$.message").value(
+                    "You have used all 2 free AI scan trials. Please sign in to continue."
+                ));
     }
 
     @Test
