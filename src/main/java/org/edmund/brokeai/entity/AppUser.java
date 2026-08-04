@@ -33,4 +33,7 @@ public class AppUser {
 
     @Column(name = "is_guest", nullable = false, columnDefinition = "boolean default false")
     private Boolean isGuest = false;
+
+    @Column(name = "ai_trial_count", nullable = false, columnDefinition = "integer default 2")
+    private Integer aiTrialCount = 2;
 }

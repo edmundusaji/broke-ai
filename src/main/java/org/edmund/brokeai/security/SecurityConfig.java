@@ -43,7 +43,7 @@ public class SecurityConfig {
                     HttpMethod.POST,
                     "/api/v1/expense/receipt",
                     "/api/v1/expense/notification"
-                ).hasRole("USER")
+                ).hasAnyRole("GUEST", "USER")
                 .requestMatchers("/api/v1/expense/**").hasAnyRole("GUEST", "USER")
                 .anyRequest().authenticated()
             )

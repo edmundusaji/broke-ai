@@ -7,6 +7,7 @@ import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
+import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -72,6 +73,8 @@ public class ExpenseController {
         try {
             Transaction response = expenseService.saveReceipt(file);
             return ResponseEntity.ok(response);
+        } catch (GuestAiTrialLimitException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("Error in receipt controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
@@ -91,6 +94,8 @@ public class ExpenseController {
         try {
             Transaction savedData = expenseService.saveNotification(request.text());
             return ResponseEntity.ok(savedData);
+        } catch (GuestAiTrialLimitException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("Error in notification controller: " + e.getMessage());
             return ResponseEntity.internalServerError().build();
