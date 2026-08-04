@@ -49,7 +49,8 @@ class GuestRegistrationIntegrationTest {
         guest = userRepository.saveAndFlush(guest);
 
         Transaction transaction = new Transaction();
-        transaction.setMerchant("Existing Merchant");
+        transaction.setPaymentMethod("Existing Payment Method");
+        transaction.setDescription("Existing transaction");
         transaction.setJumlah(25000.0);
         transaction.setTanggal(LocalDateTime.of(2026, 4, 1, 10, 0));
         transaction.setUser(guest);

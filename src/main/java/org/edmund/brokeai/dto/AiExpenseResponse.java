@@ -7,6 +7,7 @@ public class AiExpenseResponse {
     private String tanggal; // date
     private Double total;
     private String kategori;
-    private String merchant;
+    private String paymentMethod;
+    private String description;
     private String waktu; // time
 }

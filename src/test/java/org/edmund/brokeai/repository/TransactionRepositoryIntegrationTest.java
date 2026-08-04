@@ -26,16 +26,16 @@ class TransactionRepositoryIntegrationTest {
         AppUser anotherUser = saveUser("another_recent_user");
 
         for (int day = 1; day <= 7; day++) {
-            saveTransaction(user, "Merchant " + day, LocalDateTime.of(2026, 4, day, 10, 0));
+            saveTransaction(user, "Payment Method " + day, LocalDateTime.of(2026, 4, day, 10, 0));
         }
-        saveTransaction(anotherUser, "Other User Merchant", LocalDateTime.of(2026, 5, 1, 10, 0));
+        saveTransaction(anotherUser, "Other User Payment Method", LocalDateTime.of(2026, 5, 1, 10, 0));
         transactionRepository.flush();
 
         List<Transaction> result = transactionRepository.findTop5ByUserOrderByTanggalDesc(user);
 
         assertEquals(5, result.size());
-        assertEquals(List.of("Merchant 7", "Merchant 6", "Merchant 5", "Merchant 4", "Merchant 3"),
-            result.stream().map(Transaction::getMerchant).toList());
+        assertEquals(List.of("Payment Method 7", "Payment Method 6", "Payment Method 5", "Payment Method 4", "Payment Method 3"),
+            result.stream().map(Transaction::getPaymentMethod).toList());
     }
 
     private AppUser saveUser(String username) {
@@ -47,10 +47,11 @@ class TransactionRepositoryIntegrationTest {
         return userRepository.saveAndFlush(user);
     }
 
-    private void saveTransaction(AppUser user, String merchant, LocalDateTime date) {
+    private void saveTransaction(AppUser user, String paymentMethod, LocalDateTime date) {
         Transaction transaction = new Transaction();
         transaction.setUser(user);
-        transaction.setMerchant(merchant);
+        transaction.setPaymentMethod(paymentMethod);
+        transaction.setDescription("Repository test transaction");
         transaction.setJumlah(1000.0);
         transaction.setTanggal(date);
         transactionRepository.save(transaction);

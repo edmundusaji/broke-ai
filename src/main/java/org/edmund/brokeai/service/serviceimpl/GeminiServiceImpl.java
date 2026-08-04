@@ -77,7 +77,10 @@ public class GeminiServiceImpl implements GeminiService {
 
         String promptText = "Extract this receipt image. Return ONLY in pure JSON format " +
                 "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
-                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), merchant, and waktu(format HH:mm:ss), " +
+                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), " +
+                "paymentMethod (the payment provider or rail, ex: GoPay, OVO, Bank BCA, Akulaku, QRIS), " +
+                "description (a concise transaction purpose or purchased item, ex: Coffee Purchase, KitaBisa Donation, Cold Medicine), " +
+                "and waktu (format HH:mm:ss). Do not use the storefront or merchant name as paymentMethod. " +
                 "if time not found return null. Without markdown ```json.";
 
         GeminiRequest.InlineData inlineData = new GeminiRequest.InlineData(mimeType, base64EncodedImage);
@@ -92,8 +95,11 @@ public class GeminiServiceImpl implements GeminiService {
         LocalDate today = LocalDate.now();
         String promptText = "Extract this transaction text notification. Return ONLY in pure JSON format " +
                 "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
-                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), merchant, " +
-                "and waktu (format HH:mm:ss). System Context: Today's date is " + today + ". " +
+                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), " +
+                "paymentMethod (the payment provider or rail, ex: GoPay, OVO, Bank BCA, Akulaku, QRIS), " +
+                "description (a concise transaction purpose or purchased item, ex: Coffee Purchase, KitaBisa Donation, Cold Medicine), " +
+                "and waktu (format HH:mm:ss). Do not use the storefront or merchant name as paymentMethod. " +
+                "System Context: Today's date is " + today + ". " +
                 "If the provided text does not contain any explicit date, strictly return today's date as tanggal. " +
                 "If time not found return null. Without markdown ```json.\n\n" +
                 "Notification Text: " + notificationText;
