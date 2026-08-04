@@ -20,7 +20,11 @@ public class Transaction {
 
     private String kategori;
 
-    private String merchant;
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @Column(name = "description")
+    private String description;
 
     private String tipeInput; // RECEIPT, NOTIFICATION
 

@@ -138,7 +138,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         transaction.setJumlah(aiResponse.getTotal());
         transaction.setKategori(aiResponse.getKategori());
-        transaction.setMerchant(aiResponse.getMerchant());
+        transaction.setPaymentMethod(aiResponse.getPaymentMethod());
+        transaction.setDescription(aiResponse.getDescription());
         transaction.setTipeInput(tipeInput);
         transaction.setStatusValidasi("PENDING");
         transaction.setUser(user);
@@ -148,18 +149,23 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     private void applyExpenseDetails(Transaction transaction, ExpenseRequest request) {
-        transaction.setTanggal(request.date().atStartOfDay());
+        LocalTime transactionTime = transaction.getTanggal() == null
+            ? LocalTime.now()
+            : transaction.getTanggal().toLocalTime();
+        transaction.setTanggal(LocalDateTime.of(request.date(), transactionTime));
         transaction.setJumlah(request.amount());
         transaction.setKategori(request.category().trim());
-        transaction.setMerchant(request.merchant().trim());
+        transaction.setPaymentMethod(request.paymentMethod().trim());
+        transaction.setDescription(request.description().trim());
     }
 
     private void validateExpenseRequest(ExpenseRequest request) {
         if (request == null || request.date() == null || request.amount() == null
-            || request.amount() <= 0 || isBlank(request.category()) || isBlank(request.merchant())) {
+            || request.amount() <= 0 || isBlank(request.category())
+            || isBlank(request.paymentMethod()) || isBlank(request.description())) {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "Date, positive amount, category, and merchant are required"
+                "Date, positive amount, category, payment method, and description are required"
             );
         }
     }

@@ -41,7 +41,8 @@ class GeminiServiceImplTests {
                 "  \"tanggal\": \"2026-03-28\",\n" +
                 "  \"total\": 55000.0,\n" +
                 "  \"kategori\": \"Makanan\",\n" +
-                "  \"merchant\": \"Kopi Kenangan\",\n" +
+                "  \"paymentMethod\": \"GoPay\",\n" +
+                "  \"description\": \"Coffee Purchase\",\n" +
                 "  \"waktu\": \"15:30:00\"\n" +
                 "}\n" +
                 "```";
@@ -52,29 +53,35 @@ class GeminiServiceImplTests {
     void receiptProcess_Success_WithMarkdownAndMimeType_Test() {
         MockMultipartFile mockFile = new MockMultipartFile("file", "test.png", "image/png", "dummy".getBytes());
         GeminiResponse mockResponse = createMockGeminiResponse(validJsonResponseString);
+        ArgumentCaptor<GeminiRequest> requestCaptor = ArgumentCaptor.forClass(GeminiRequest.class);
 
         when(geminiOutboundService.sendToGemini(any(GeminiRequest.class))).thenReturn(mockResponse);
 
         AiExpenseResponse result = geminiService.receiptProcess(mockFile);
 
         assertNotNull(result);
-        assertEquals("Kopi Kenangan", result.getMerchant());
+        assertEquals("GoPay", result.getPaymentMethod());
+        assertEquals("Coffee Purchase", result.getDescription());
         assertEquals(55000.0, result.getTotal());
 
-        verify(geminiOutboundService, times(1)).sendToGemini(any(GeminiRequest.class));
+        verify(geminiOutboundService).sendToGemini(requestCaptor.capture());
+        String promptText = requestCaptor.getValue().contents().getFirst().parts().getFirst().text();
+        assertTrue(promptText.contains("paymentMethod (the payment provider or rail"));
+        assertTrue(promptText.contains("description (a concise transaction purpose or purchased item"));
+        assertTrue(promptText.contains("Do not use the storefront or merchant name as paymentMethod"));
     }
 
     @Test
     void receiptProcess_FallbackMimeTypeNull_Test() {
         MockMultipartFile mockFile = new MockMultipartFile("file", "test.bin", null, "dummy".getBytes());
-        GeminiResponse mockResponse = createMockGeminiResponse("{\"merchant\": \"Unknown\", \"total\": 10000}");
+        GeminiResponse mockResponse = createMockGeminiResponse("{\"paymentMethod\": \"Unknown\", \"total\": 10000}");
 
         when(geminiOutboundService.sendToGemini(any(GeminiRequest.class))).thenReturn(mockResponse);
 
         AiExpenseResponse result = geminiService.receiptProcess(mockFile);
 
         assertNotNull(result);
-        assertEquals("Unknown", result.getMerchant());
+        assertEquals("Unknown", result.getPaymentMethod());
     }
 
     @Test
@@ -85,7 +92,7 @@ class GeminiServiceImplTests {
         AiExpenseResponse result = geminiService.receiptProcess(errorFile);
 
         assertNotNull(result);
-        assertNull(result.getMerchant());
+        assertNull(result.getPaymentMethod());
 
         verify(geminiOutboundService, never()).sendToGemini(any());
     }
@@ -98,7 +105,8 @@ class GeminiServiceImplTests {
         AiExpenseResponse result = geminiService.prosesNotifikasi("Notifikasi Text");
 
         assertNotNull(result);
-        assertEquals("Kopi Kenangan", result.getMerchant());
+        assertEquals("GoPay", result.getPaymentMethod());
+        assertEquals("Coffee Purchase", result.getDescription());
     }
 
     @Test
@@ -115,6 +123,9 @@ class GeminiServiceImplTests {
         assertTrue(promptText.contains("Today's date is " + LocalDate.now()));
         assertTrue(promptText.contains("If the provided text does not contain any explicit date"));
         assertTrue(promptText.contains("strictly return today's date as tanggal"));
+        assertTrue(promptText.contains("paymentMethod (the payment provider or rail"));
+        assertTrue(promptText.contains("description (a concise transaction purpose or purchased item"));
+        assertTrue(promptText.contains("Do not use the storefront or merchant name as paymentMethod"));
     }
 
     @Test
@@ -125,7 +136,7 @@ class GeminiServiceImplTests {
         AiExpenseResponse result = geminiService.prosesNotifikasi("Notifikasi Text");
 
         assertNotNull(result);
-        assertNull(result.getMerchant());
+        assertNull(result.getPaymentMethod());
     }
 
     @Test
@@ -136,7 +147,7 @@ class GeminiServiceImplTests {
         AiExpenseResponse result = geminiService.receiptProcess(mockFile);
 
         assertNotNull(result);
-        assertNull(result.getMerchant());
+        assertNull(result.getPaymentMethod());
     }
 
     @Test
@@ -149,7 +160,7 @@ class GeminiServiceImplTests {
         AiExpenseResponse result = geminiService.receiptProcess(mockFile);
 
         assertNotNull(result);
-        assertNull(result.getMerchant());
+        assertNull(result.getPaymentMethod());
     }
 
     // Mock Response Gemini

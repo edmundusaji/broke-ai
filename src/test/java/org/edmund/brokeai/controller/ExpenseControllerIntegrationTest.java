@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
 
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -67,7 +68,8 @@ class ExpenseControllerIntegrationTest {
                 "  \"tanggal\": \"2026-03-28\",\n" +
                 "  \"total\": 75000.0,\n" +
                 "  \"kategori\": \"Transportasi\",\n" +
-                "  \"merchant\": \"Grab\",\n" +
+                "  \"paymentMethod\": \"GoPay\",\n" +
+                "  \"description\": \"Grab Ride\",\n" +
                 "  \"waktu\": \"09:15:00\"\n" +
                 "}";
 
@@ -131,7 +133,8 @@ class ExpenseControllerIntegrationTest {
     void getHistory_Success_IntegrationTest() throws Exception {
         Transaction transaction = new Transaction();
         transaction.setId(300L);
-        transaction.setMerchant("Grab");
+        transaction.setPaymentMethod("GoPay");
+        transaction.setDescription("Grab Ride");
         transaction.setKategori("Transportasi");
         transaction.setJumlah(75000.0);
         transaction.setTanggal(LocalDateTime.of(2026, 3, 28, 9, 15));
@@ -151,7 +154,8 @@ class ExpenseControllerIntegrationTest {
                         .param("year", "2026"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(300L))
-                .andExpect(jsonPath("$[0].merchant").value("Grab"))
+                .andExpect(jsonPath("$[0].paymentMethod").value("GoPay"))
+                .andExpect(jsonPath("$[0].description").value("Grab Ride"))
                 .andExpect(jsonPath("$[0].jumlah").value(75000.0));
     }
 
@@ -159,7 +163,8 @@ class ExpenseControllerIntegrationTest {
     void getRecentExpenses_ReturnsFiveMostRecentTransactions() throws Exception {
         Transaction transaction = new Transaction();
         transaction.setId(301L);
-        transaction.setMerchant("Latest Merchant");
+        transaction.setPaymentMethod("Latest Payment Method");
+        transaction.setDescription("Latest transaction");
         transaction.setTanggal(LocalDateTime.of(2026, 4, 1, 12, 0));
         when(transactionRepository.findTop5ByUserOrderByTanggalDesc(mockUser))
             .thenReturn(List.of(transaction));
@@ -168,7 +173,8 @@ class ExpenseControllerIntegrationTest {
                         .header("Authorization", authHeader()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(301L))
-                .andExpect(jsonPath("$[0].merchant").value("Latest Merchant"));
+                .andExpect(jsonPath("$[0].paymentMethod").value("Latest Payment Method"))
+                .andExpect(jsonPath("$[0].description").value("Latest transaction"));
     }
 
     @Test
@@ -204,7 +210,8 @@ class ExpenseControllerIntegrationTest {
                     )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(100L))
-                    .andExpect(jsonPath("$.merchant").value("Grab"))
+                    .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
+                    .andExpect(jsonPath("$.description").value("Grab Ride"))
                     .andExpect(jsonPath("$.jumlah").value(75000.0))
                     .andExpect(jsonPath("$.tipeInput").value("RECEIPT"))
                     .andExpect(jsonPath("$.statusValidasi").value("PENDING"));
@@ -233,7 +240,8 @@ class ExpenseControllerIntegrationTest {
                             .content(requestBody))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(200L))
-                    .andExpect(jsonPath("$.merchant").value("Grab"))
+                    .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
+                    .andExpect(jsonPath("$.description").value("Grab Ride"))
                     .andExpect(jsonPath("$.tipeInput").value("NOTIFICATION"));
         }
     }
@@ -282,9 +290,15 @@ class ExpenseControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/expense/manual")
                         .header("Authorization", authHeader())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-03-28\",\"amount\":75000,\"category\":\"Transport\",\"merchant\":\"Grab\"}"))
+                        .content("{\"date\":\"2026-03-28\",\"amount\":75000,\"category\":\"Transport\",\"paymentMethod\":\"GoPay\",\"description\":\"Grab Ride\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(400L))
+                .andExpect(jsonPath("$.tanggal", matchesPattern(
+                    "2026-03-28T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?"
+                )))
+                .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
+                .andExpect(jsonPath("$.description").value("Grab Ride"))
+                .andExpect(jsonPath("$.merchant").doesNotExist())
                 .andExpect(jsonPath("$.tipeInput").value("MANUAL"))
                 .andExpect(jsonPath("$.statusValidasi").value("CONFIRMED"));
     }
@@ -296,8 +310,10 @@ class ExpenseControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/expense/manual")
                         .header("Authorization", guestAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-03-28\",\"amount\":25000,\"category\":\"Food\",\"merchant\":\"Cafe\"}"))
+                        .content("{\"date\":\"2026-03-28\",\"amount\":25000,\"category\":\"Food\",\"paymentMethod\":\"Cash\",\"description\":\"Coffee Purchase\"}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paymentMethod").value("Cash"))
+                .andExpect(jsonPath("$.description").value("Coffee Purchase"))
                 .andExpect(jsonPath("$.tipeInput").value("MANUAL"));
     }
 
@@ -328,9 +344,10 @@ class ExpenseControllerIntegrationTest {
         mockMvc.perform(put("/api/v1/expense/500")
                         .header("Authorization", authHeader())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-04-01\",\"amount\":50000,\"category\":\"Food\",\"merchant\":\"Cafe\"}"))
+                        .content("{\"date\":\"2026-04-01\",\"amount\":50000,\"category\":\"Food\",\"paymentMethod\":\"OVO\",\"description\":\"Lunch\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.merchant").value("Cafe"))
+                .andExpect(jsonPath("$.paymentMethod").value("OVO"))
+                .andExpect(jsonPath("$.description").value("Lunch"))
                 .andExpect(jsonPath("$.jumlah").value(50000));
     }
 
@@ -369,7 +386,7 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void processReceipt_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"merchant\": \"Grab\"}");
+        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"paymentMethod\": \"GoPay\"}");
 
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {
@@ -391,7 +408,7 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void processNotification_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"merchant\": \"Grab\"}");
+        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"paymentMethod\": \"GoPay\"}");
 
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {

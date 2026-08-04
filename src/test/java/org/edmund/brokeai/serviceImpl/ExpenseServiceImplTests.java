@@ -27,6 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +61,8 @@ class ExpenseServiceImplTests {
                 "image/jpeg", "dummy image content".getBytes());
 
         mockAiResponse = new AiExpenseResponse();
-        mockAiResponse.setMerchant("Kopi Kenangan");
+        mockAiResponse.setPaymentMethod("GoPay");
+        mockAiResponse.setDescription("Coffee Purchase");
         mockAiResponse.setTotal(55000.0);
         mockAiResponse.setKategori("Makanan");
         mockAiResponse.setTanggal("2026-03-28");
@@ -67,7 +70,8 @@ class ExpenseServiceImplTests {
 
         mockTransaction = new Transaction();
         mockTransaction.setId(1L);
-        mockTransaction.setMerchant("Kopi Kenangan");
+        mockTransaction.setPaymentMethod("GoPay");
+        mockTransaction.setDescription("Coffee Purchase");
         mockTransaction.setJumlah(55000.0);
 
         mockUser = new AppUser();
@@ -93,7 +97,8 @@ class ExpenseServiceImplTests {
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-        assertEquals("Kopi Kenangan", result.getMerchant());
+        assertEquals("GoPay", result.getPaymentMethod());
+        assertEquals("Coffee Purchase", result.getDescription());
 
         verify(geminiService, times(1)).receiptProcess(mockFile);
         verify(transactionRepository, times(1)).save(any(Transaction.class));
@@ -133,6 +138,8 @@ class ExpenseServiceImplTests {
         assertNotNull(result);
         assertNotNull(result.getTanggal());
         assertEquals("NOTIFICATION", result.getTipeInput());
+        assertEquals("GoPay", result.getPaymentMethod());
+        assertEquals("Coffee Purchase", result.getDescription());
 
         verify(geminiService, times(1)).prosesNotifikasi(notifText);
         verify(transactionRepository, times(1)).save(any(Transaction.class));
@@ -223,18 +230,25 @@ class ExpenseServiceImplTests {
 
     @Test
     void createManualExpense_ValidRequest_SavesConfirmedManualTransaction() {
-        ExpenseRequest request = validExpenseRequest();
+        LocalDateTime beforeCreation = LocalDateTime.now();
+        ExpenseRequest request = new ExpenseRequest(
+            beforeCreation.toLocalDate(), 75000.0, " Food ", " GoPay ", " Coffee Purchase "
+        );
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Transaction result = expenseServiceImpl.createManualExpense(request);
+        LocalDateTime afterCreation = LocalDateTime.now();
 
         assertEquals("MANUAL", result.getTipeInput());
         assertEquals("CONFIRMED", result.getStatusValidasi());
         assertEquals(mockUser, result.getUser());
-        assertEquals(LocalDate.of(2026, 4, 1).atStartOfDay(), result.getTanggal());
+        assertFalse(result.getTanggal().isBefore(beforeCreation));
+        assertFalse(result.getTanggal().isAfter(afterCreation));
+        assertNotEquals(LocalTime.MIDNIGHT, result.getTanggal().toLocalTime());
         assertEquals(75000.0, result.getJumlah());
         assertEquals("Food", result.getKategori());
-        assertEquals("Cafe", result.getMerchant());
+        assertEquals("GoPay", result.getPaymentMethod());
+        assertEquals("Coffee Purchase", result.getDescription());
         verify(transactionRepository).save(result);
     }
 
@@ -243,14 +257,17 @@ class ExpenseServiceImplTests {
         ExpenseRequest request = validExpenseRequest();
         Transaction transaction = new Transaction();
         transaction.setId(99L);
+        transaction.setTanggal(LocalDateTime.of(2026, 3, 30, 14, 15, 16));
         when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.of(transaction));
         when(transactionRepository.save(transaction)).thenReturn(transaction);
 
         Transaction result = expenseServiceImpl.updateExpense(99L, request);
 
         assertSame(transaction, result);
+        assertEquals(LocalDateTime.of(2026, 4, 1, 14, 15, 16), transaction.getTanggal());
         assertEquals("Food", transaction.getKategori());
-        assertEquals("Cafe", transaction.getMerchant());
+        assertEquals("GoPay", transaction.getPaymentMethod());
+        assertEquals("Coffee Purchase", transaction.getDescription());
         verify(transactionRepository).findByIdAndUser(99L, mockUser);
         verify(transactionRepository).save(transaction);
     }
@@ -308,13 +325,15 @@ class ExpenseServiceImplTests {
     @Test
     void createManualExpense_InvalidRequest_ReturnsBadRequestForEveryValidationBranch() {
         assertInvalidManualExpense(null);
-        assertInvalidManualExpense(new ExpenseRequest(null, 1.0, "Food", "Cafe"));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), null, "Food", "Cafe"));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 0.0, "Food", "Cafe"));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, null, "Cafe"));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, " ", "Cafe"));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", null));
-        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", " "));
+        assertInvalidManualExpense(new ExpenseRequest(null, 1.0, "Food", "GoPay", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), null, "Food", "GoPay", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 0.0, "Food", "GoPay", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, null, "GoPay", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, " ", "GoPay", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", null, "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", " ", "Coffee Purchase"));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", "GoPay", null));
+        assertInvalidManualExpense(new ExpenseRequest(LocalDate.now(), 1.0, "Food", "GoPay", " "));
     }
 
     @Test
@@ -373,7 +392,9 @@ class ExpenseServiceImplTests {
     }
 
     private ExpenseRequest validExpenseRequest() {
-        return new ExpenseRequest(LocalDate.of(2026, 4, 1), 75000.0, " Food ", " Cafe ");
+        return new ExpenseRequest(
+            LocalDate.of(2026, 4, 1), 75000.0, " Food ", " GoPay ", " Coffee Purchase "
+        );
     }
 
     private void assertInvalidManualExpense(ExpenseRequest request) {
@@ -382,6 +403,9 @@ class ExpenseServiceImplTests {
             () -> expenseServiceImpl.createManualExpense(request)
         );
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("Date, positive amount, category, and merchant are required", exception.getReason());
+        assertEquals(
+            "Date, positive amount, category, payment method, and description are required",
+            exception.getReason()
+        );
     }
 }

@@ -7,6 +7,7 @@ public record ExpenseRequest(
     LocalDate date,
     Double amount,
     String category,
-    String merchant
+    String paymentMethod,
+    String description
 ) {
 }
