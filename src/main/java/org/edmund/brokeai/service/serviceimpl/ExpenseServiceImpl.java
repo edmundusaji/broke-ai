@@ -127,6 +127,12 @@ public class ExpenseServiceImpl implements ExpenseService {
         );
     }
 
+    @Override
+    public List<Transaction> getRecentExpenses() {
+        AppUser currentUser = currentUserService.getCurrentUser();
+        return transactionRepository.findTop5ByUserOrderByTanggalDesc(currentUser);
+    }
+
     private Transaction mapToEntity(AiExpenseResponse aiResponse, String tipeInput, AppUser user) {
         Transaction transaction = new Transaction();
 

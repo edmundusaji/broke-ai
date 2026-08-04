@@ -229,6 +229,81 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void register_AuthenticatedGuest_UpdatesSameUserAndPreservesIdentity() {
+        RegisterRequest request = new RegisterRequest(" Edmundus Aji ", " edmundus ", " AJI@mail.com ", "password123");
+        AppUser guest = new AppUser();
+        guest.setId(42L);
+        guest.setNamaLengkap("Guest User");
+        guest.setUsername("guest_123");
+        guest.setIsGuest(true);
+        guest.setAiTrialCount(1);
+
+        when(currentUserService.getCurrentUserIfAuthenticated()).thenReturn(Optional.of(guest));
+        when(userRepository.existsByUsernameAndIdNot("edmundus", 42L)).thenReturn(false);
+        when(userRepository.existsByEmailAndIdNot("aji@mail.com", 42L)).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
+
+        authService.register(request);
+
+        assertEquals(42L, guest.getId());
+        assertEquals("Edmundus Aji", guest.getNamaLengkap());
+        assertEquals("edmundus", guest.getUsername());
+        assertEquals("aji@mail.com", guest.getEmail());
+        assertEquals("encodedPassword", guest.getPassword());
+        assertFalse(guest.getIsGuest());
+        assertEquals(0, guest.getAiTrialCount());
+        verify(userRepository).save(guest);
+        verify(userRepository, never()).existsByUsername(anyString());
+        verify(userRepository, never()).existsByEmail(anyString());
+    }
+
+    @Test
+    void register_AuthenticatedGuestWithConflictingUsername_ThrowsBadRequest() {
+        AppUser guest = guestUser();
+        when(currentUserService.getCurrentUserIfAuthenticated()).thenReturn(Optional.of(guest));
+        when(userRepository.existsByUsernameAndIdNot("edmundus", 42L)).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.register(new RegisterRequest("Aji", "edmundus", "aji@mail.com", "password123"))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Username is already in use", exception.getReason());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void register_AuthenticatedGuestWithConflictingEmail_ThrowsBadRequest() {
+        AppUser guest = guestUser();
+        when(currentUserService.getCurrentUserIfAuthenticated()).thenReturn(Optional.of(guest));
+        when(userRepository.existsByUsernameAndIdNot("edmundus", 42L)).thenReturn(false);
+        when(userRepository.existsByEmailAndIdNot("aji@mail.com", 42L)).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> authService.register(new RegisterRequest("Aji", "edmundus", "aji@mail.com", "password123"))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Email is already in use", exception.getReason());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void register_AuthenticatedNonGuest_CreatesNewUser() {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(7L);
+        currentUser.setIsGuest(false);
+        when(currentUserService.getCurrentUserIfAuthenticated()).thenReturn(Optional.of(currentUser));
+        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
+
+        authService.register(new RegisterRequest("Aji", "edmundus", "aji@mail.com", "password123"));
+
+        verify(userRepository).save(argThat(saved -> saved != currentUser && saved.getId() == null));
+    }
+
+    @Test
     void upgradeGuest_ValidRequest_UpdatesSameUserAndPreservesIdentity() {
         AppUser guest = new AppUser();
         guest.setId(42L);
@@ -342,6 +417,13 @@ class AuthServiceImplTest {
 
     private UpgradeGuestRequest validUpgradeRequest() {
         return new UpgradeGuestRequest("Aji", "aji@mail.com", "password123");
+    }
+
+    private AppUser guestUser() {
+        AppUser guest = new AppUser();
+        guest.setId(42L);
+        guest.setIsGuest(true);
+        return guest;
     }
 
     private void assertInvalidUpgrade(UpgradeGuestRequest request) {

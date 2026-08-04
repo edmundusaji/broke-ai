@@ -18,4 +18,5 @@ public interface ExpenseService {
     void deleteExpense(Long id);
     ExpenseSummaryResponse getExpenseSummary(int month, int year);
     List<Transaction> getExpenseHistory(int month, int year);
+    List<Transaction> getRecentExpenses();
 }

@@ -31,5 +31,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         LocalDateTime endDate
     );
 
+    List<Transaction> findTop5ByUserOrderByTanggalDesc(AppUser user);
+
     Optional<Transaction> findByIdAndUser(Long id, AppUser user);
 }
