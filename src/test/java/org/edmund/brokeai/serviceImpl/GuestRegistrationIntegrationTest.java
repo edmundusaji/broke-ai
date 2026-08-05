@@ -25,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@DataJpaTest
+@DataJpaTest(properties = {
+    "spring.flyway.enabled=false",
+    "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 class GuestRegistrationIntegrationTest {
 
     @Autowired
@@ -42,7 +45,7 @@ class GuestRegistrationIntegrationTest {
     @Test
     void register_AuthenticatedGuest_UpdatesExistingRowAndPreservesTransactions() {
         AppUser guest = new AppUser();
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setUsername("guest_registration_test");
         guest.setIsGuest(true);
         guest.setAiTrialCount(1);
@@ -51,8 +54,8 @@ class GuestRegistrationIntegrationTest {
         Transaction transaction = new Transaction();
         transaction.setPaymentMethod("Existing Payment Method");
         transaction.setDescription("Existing transaction");
-        transaction.setJumlah(25000.0);
-        transaction.setTanggal(LocalDateTime.of(2026, 4, 1, 10, 0));
+        transaction.setAmount(25000.0);
+        transaction.setDate(LocalDateTime.of(2026, 4, 1, 10, 0));
         transaction.setUser(guest);
         transaction = transactionRepository.saveAndFlush(transaction);
 

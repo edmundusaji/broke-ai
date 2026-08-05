@@ -14,24 +14,24 @@ import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    @Query("SELECT new org.edmund.brokeai.dto.CategorySummaryDTO(COALESCE(t.kategori, 'Other'), SUM(t.jumlah)) " +
+    @Query("SELECT new org.edmund.brokeai.dto.CategorySummaryDTO(COALESCE(t.category, 'Other'), SUM(t.amount)) " +
         "FROM Transaction t " +
-        "WHERE t.user = :user AND t.tanggal >= :startDate AND t.tanggal <= :endDate " +
-        "GROUP BY COALESCE(t.kategori, 'Other') " +
-        "ORDER BY SUM(t.jumlah) DESC")
+        "WHERE t.user = :user AND t.date >= :startDate AND t.date <= :endDate " +
+        "GROUP BY COALESCE(t.category, 'Other') " +
+        "ORDER BY SUM(t.amount) DESC")
     List<CategorySummaryDTO> getExpenseSummaryByUserAndDateRange(
         @Param("user") AppUser user,
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate
     );
 
-    List<Transaction> findByUserAndTanggalBetweenOrderByTanggalDesc(
+    List<Transaction> findByUserAndDateBetweenOrderByDateDesc(
         AppUser user,
         LocalDateTime startDate,
         LocalDateTime endDate
     );
 
-    List<Transaction> findTop5ByUserOrderByTanggalDesc(AppUser user);
+    List<Transaction> findTop5ByUserOrderByDateDesc(AppUser user);
 
     Optional<Transaction> findByIdAndUser(Long id, AppUser user);
 }

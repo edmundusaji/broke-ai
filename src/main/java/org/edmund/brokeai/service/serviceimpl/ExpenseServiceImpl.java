@@ -42,7 +42,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return executeAiOperation(currentUser, () -> {
             AiExpenseResponse aiResponse = geminiService.receiptProcess(file);
 
-            if (aiResponse == null || aiResponse.getTotal() == null) {
+            if (aiResponse == null || aiResponse.getAmount() == null) {
                 throw new RuntimeException("Failed to process receipt");
             }
 
@@ -55,9 +55,9 @@ public class ExpenseServiceImpl implements ExpenseService {
     public Transaction saveNotification(String notification) {
         AppUser currentUser = currentUserService.getCurrentUser();
         return executeAiOperation(currentUser, () -> {
-            AiExpenseResponse aiResponse = geminiService.prosesNotifikasi(notification);
+            AiExpenseResponse aiResponse = geminiService.processNotification(notification);
 
-            if (aiResponse == null || aiResponse.getTotal() == null) {
+            if (aiResponse == null || aiResponse.getAmount() == null) {
                 throw new RuntimeException("Failed to process notifications");
             }
 
@@ -72,8 +72,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Transaction transaction = new Transaction();
         applyExpenseDetails(transaction, request);
-        transaction.setTipeInput("MANUAL");
-        transaction.setStatusValidasi("CONFIRMED");
+        transaction.setInputType("MANUAL");
+        transaction.setValidationStatus("CONFIRMED");
         transaction.setUser(currentUserService.getCurrentUser());
         return transactionRepository.save(transaction);
     }
@@ -120,7 +120,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         AppUser currentUser = currentUserService.getCurrentUser();
         DateRange dateRange = buildMonthDateRange(month, year);
 
-        return transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(
+        return transactionRepository.findByUserAndDateBetweenOrderByDateDesc(
             currentUser,
             dateRange.startDate(),
             dateRange.endDate()
@@ -130,31 +130,31 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     public List<Transaction> getRecentExpenses() {
         AppUser currentUser = currentUserService.getCurrentUser();
-        return transactionRepository.findTop5ByUserOrderByTanggalDesc(currentUser);
+        return transactionRepository.findTop5ByUserOrderByDateDesc(currentUser);
     }
 
-    private Transaction mapToEntity(AiExpenseResponse aiResponse, String tipeInput, AppUser user) {
+    private Transaction mapToEntity(AiExpenseResponse aiResponse, String inputType, AppUser user) {
         Transaction transaction = new Transaction();
 
-        transaction.setJumlah(aiResponse.getTotal());
-        transaction.setKategori(aiResponse.getKategori());
+        transaction.setAmount(aiResponse.getAmount());
+        transaction.setCategory(aiResponse.getCategory());
         transaction.setPaymentMethod(aiResponse.getPaymentMethod());
         transaction.setDescription(aiResponse.getDescription());
-        transaction.setTipeInput(tipeInput);
-        transaction.setStatusValidasi("PENDING");
+        transaction.setInputType(inputType);
+        transaction.setValidationStatus("PENDING");
         transaction.setUser(user);
-        transaction.setTanggal(parseDateAndTime(aiResponse.getTanggal(), aiResponse.getWaktu()));
+        transaction.setDate(parseDateAndTime(aiResponse.getDate(), aiResponse.getTime()));
 
         return transaction;
     }
 
     private void applyExpenseDetails(Transaction transaction, ExpenseRequest request) {
-        LocalTime transactionTime = transaction.getTanggal() == null
+        LocalTime transactionTime = transaction.getDate() == null
             ? LocalTime.now()
-            : transaction.getTanggal().toLocalTime();
-        transaction.setTanggal(LocalDateTime.of(request.date(), transactionTime));
-        transaction.setJumlah(request.amount());
-        transaction.setKategori(request.category().trim());
+            : transaction.getDate().toLocalTime();
+        transaction.setDate(LocalDateTime.of(request.date(), transactionTime));
+        transaction.setAmount(request.amount());
+        transaction.setCategory(request.category().trim());
         transaction.setPaymentMethod(request.paymentMethod().trim());
         transaction.setDescription(request.description().trim());
     }

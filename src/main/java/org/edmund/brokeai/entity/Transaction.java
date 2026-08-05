@@ -14,11 +14,12 @@ public class Transaction {
     @GeneratedValue (strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime tanggal; // date
+    @Column(name = "transaction_date")
+    private LocalDateTime date;
 
-    private Double jumlah; // total
+    private Double amount;
 
-    private String kategori;
+    private String category;
 
     @Column(name = "payment_method")
     private String paymentMethod;
@@ -26,9 +27,11 @@ public class Transaction {
     @Column(name = "description")
     private String description;
 
-    private String tipeInput; // RECEIPT, NOTIFICATION
+    @Column(name = "input_type")
+    private String inputType; // RECEIPT, NOTIFICATION
 
-    private String statusValidasi; // PENDING, CONFIRMED
+    @Column(name = "validation_status")
+    private String validationStatus; // PENDING, CONFIRMED
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)

@@ -11,7 +11,10 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@DataJpaTest
+@DataJpaTest(properties = {
+    "spring.flyway.enabled=false",
+    "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 class TransactionRepositoryIntegrationTest {
 
     @Autowired
@@ -21,7 +24,7 @@ class TransactionRepositoryIntegrationTest {
     private TransactionRepository transactionRepository;
 
     @Test
-    void findTop5ByUserOrderByTanggalDesc_ReturnsOnlyLatestFiveForRequestedUser() {
+    void findTop5ByUserOrderByDateDesc_ReturnsOnlyLatestFiveForRequestedUser() {
         AppUser user = saveUser("recent_user");
         AppUser anotherUser = saveUser("another_recent_user");
 
@@ -31,7 +34,7 @@ class TransactionRepositoryIntegrationTest {
         saveTransaction(anotherUser, "Other User Payment Method", LocalDateTime.of(2026, 5, 1, 10, 0));
         transactionRepository.flush();
 
-        List<Transaction> result = transactionRepository.findTop5ByUserOrderByTanggalDesc(user);
+        List<Transaction> result = transactionRepository.findTop5ByUserOrderByDateDesc(user);
 
         assertEquals(5, result.size());
         assertEquals(List.of("Payment Method 7", "Payment Method 6", "Payment Method 5", "Payment Method 4", "Payment Method 3"),
@@ -40,7 +43,7 @@ class TransactionRepositoryIntegrationTest {
 
     private AppUser saveUser(String username) {
         AppUser user = new AppUser();
-        user.setNamaLengkap(username);
+        user.setFullName(username);
         user.setUsername(username);
         user.setIsGuest(false);
         user.setAiTrialCount(0);
@@ -52,8 +55,8 @@ class TransactionRepositoryIntegrationTest {
         transaction.setUser(user);
         transaction.setPaymentMethod(paymentMethod);
         transaction.setDescription("Repository test transaction");
-        transaction.setJumlah(1000.0);
-        transaction.setTanggal(date);
+        transaction.setAmount(1000.0);
+        transaction.setDate(date);
         transactionRepository.save(transaction);
     }
 }

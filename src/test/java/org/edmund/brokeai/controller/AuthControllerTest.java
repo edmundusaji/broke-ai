@@ -95,7 +95,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.username").value("guest_123"))
                 .andExpect(jsonPath("$.isGuest").value(true))
                 .andExpect(jsonPath("$.remaining_ai_trials").value(2))
-                .andExpect(jsonPath("$.user.name").value("Guest User"));
+                .andExpect(jsonPath("$.user.fullName").value("Guest User"));
     }
 
     @Test
@@ -117,6 +117,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("upgraded-token"))
                 .andExpect(jsonPath("$.isGuest").value(false))
+                .andExpect(jsonPath("$.user.fullName").value("Edmundus Aji"))
                 .andExpect(jsonPath("$.user.email").value("aji@mail.com"));
     }
 
@@ -129,6 +130,7 @@ class AuthControllerTest {
 
         mockMvc.perform(get("/api/v1/auth/me"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Guest User"))
                 .andExpect(jsonPath("$.role").value("ROLE_GUEST"))
                 .andExpect(jsonPath("$.remaining_ai_trials").value(1));
     }

@@ -18,8 +18,8 @@ public class AppUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "nama_lengkap", nullable = false)
-    private String namaLengkap;
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
 
     @Column(nullable = false, unique = true)
     private String username;

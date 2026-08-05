@@ -1,7 +1,7 @@
 package org.edmund.brokeai.dto;
 
 public record RegisterRequest(
-    String namaLengkap,
+    String fullName,
     String username,
     String email,
     String password

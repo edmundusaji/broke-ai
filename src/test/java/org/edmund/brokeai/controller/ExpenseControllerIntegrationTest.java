@@ -65,19 +65,19 @@ class ExpenseControllerIntegrationTest {
     @BeforeEach
     void setUp() {
         String fakeJsonResponse = "{\n" +
-                "  \"tanggal\": \"2026-03-28\",\n" +
-                "  \"total\": 75000.0,\n" +
-                "  \"kategori\": \"Transportasi\",\n" +
+                "  \"date\": \"2026-03-28\",\n" +
+                "  \"time\": \"09:15:00\",\n" +
+                "  \"amount\": 75000.0,\n" +
+                "  \"category\": \"Transportation\",\n" +
                 "  \"paymentMethod\": \"GoPay\",\n" +
-                "  \"description\": \"Grab Ride\",\n" +
-                "  \"waktu\": \"09:15:00\"\n" +
+                "  \"description\": \"Grab Ride\"\n" +
                 "}";
 
         mockGeminiResponse = createMockGeminiResponse(fakeJsonResponse);
 
         mockUser = new AppUser();
         mockUser.setId(1L);
-        mockUser.setNamaLengkap("Rani Test");
+        mockUser.setFullName("Rani Test");
         mockUser.setUsername("rani");
         mockUser.setEmail("rani@example.com");
         mockUser.setPassword("hashed-password");
@@ -121,7 +121,7 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void getHistory_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(any(), any(), any()))
+        when(transactionRepository.findByUserAndDateBetweenOrderByDateDesc(any(), any(), any()))
                 .thenThrow(new RuntimeException("Simulated DB Error For History"));
 
         mockMvc.perform(get("/api/v1/expense/history")
@@ -135,13 +135,13 @@ class ExpenseControllerIntegrationTest {
         transaction.setId(300L);
         transaction.setPaymentMethod("GoPay");
         transaction.setDescription("Grab Ride");
-        transaction.setKategori("Transportasi");
-        transaction.setJumlah(75000.0);
-        transaction.setTanggal(LocalDateTime.of(2026, 3, 28, 9, 15));
-        transaction.setTipeInput("NOTIFICATION");
-        transaction.setStatusValidasi("PENDING");
+        transaction.setCategory("Transportation");
+        transaction.setAmount(75000.0);
+        transaction.setDate(LocalDateTime.of(2026, 3, 28, 9, 15));
+        transaction.setInputType("NOTIFICATION");
+        transaction.setValidationStatus("PENDING");
 
-        when(transactionRepository.findByUserAndTanggalBetweenOrderByTanggalDesc(
+        when(transactionRepository.findByUserAndDateBetweenOrderByDateDesc(
                 any(AppUser.class),
                 any(LocalDateTime.class),
                 any(LocalDateTime.class)
@@ -156,7 +156,7 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].id").value(300L))
                 .andExpect(jsonPath("$[0].paymentMethod").value("GoPay"))
                 .andExpect(jsonPath("$[0].description").value("Grab Ride"))
-                .andExpect(jsonPath("$[0].jumlah").value(75000.0));
+                .andExpect(jsonPath("$[0].amount").value(75000.0));
     }
 
     @Test
@@ -165,8 +165,8 @@ class ExpenseControllerIntegrationTest {
         transaction.setId(301L);
         transaction.setPaymentMethod("Latest Payment Method");
         transaction.setDescription("Latest transaction");
-        transaction.setTanggal(LocalDateTime.of(2026, 4, 1, 12, 0));
-        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(mockUser))
+        transaction.setDate(LocalDateTime.of(2026, 4, 1, 12, 0));
+        when(transactionRepository.findTop5ByUserOrderByDateDesc(mockUser))
             .thenReturn(List.of(transaction));
 
         mockMvc.perform(get("/api/v1/expense/recent")
@@ -179,7 +179,7 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void getRecentExpenses_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(any()))
+        when(transactionRepository.findTop5ByUserOrderByDateDesc(any()))
             .thenThrow(new RuntimeException("Simulated DB Error For Recent Expenses"));
 
         mockMvc.perform(get("/api/v1/expense/recent")
@@ -202,7 +202,7 @@ class ExpenseControllerIntegrationTest {
                 })) {
 
             MockMultipartFile mockFile = new MockMultipartFile(
-                    "file", "struk_grab.jpg", "image/jpeg", "fake image data".getBytes());
+                    "file", "grab_receipt.jpg", "image/jpeg", "fake image data".getBytes());
 
             mockMvc.perform(multipart("/api/v1/expense/receipt")
                             .file(mockFile)
@@ -212,9 +212,9 @@ class ExpenseControllerIntegrationTest {
                     .andExpect(jsonPath("$.id").value(100L))
                     .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
                     .andExpect(jsonPath("$.description").value("Grab Ride"))
-                    .andExpect(jsonPath("$.jumlah").value(75000.0))
-                    .andExpect(jsonPath("$.tipeInput").value("RECEIPT"))
-                    .andExpect(jsonPath("$.statusValidasi").value("PENDING"));
+                    .andExpect(jsonPath("$.amount").value(75000.0))
+                    .andExpect(jsonPath("$.inputType").value("RECEIPT"))
+                    .andExpect(jsonPath("$.validationStatus").value("PENDING"));
         }
     }
 
@@ -242,7 +242,7 @@ class ExpenseControllerIntegrationTest {
                     .andExpect(jsonPath("$.id").value(200L))
                     .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
                     .andExpect(jsonPath("$.description").value("Grab Ride"))
-                    .andExpect(jsonPath("$.tipeInput").value("NOTIFICATION"));
+                    .andExpect(jsonPath("$.inputType").value("NOTIFICATION"));
         }
     }
 
@@ -293,14 +293,14 @@ class ExpenseControllerIntegrationTest {
                         .content("{\"date\":\"2026-03-28\",\"amount\":75000,\"category\":\"Transport\",\"paymentMethod\":\"GoPay\",\"description\":\"Grab Ride\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(400L))
-                .andExpect(jsonPath("$.tanggal", matchesPattern(
+                .andExpect(jsonPath("$.date", matchesPattern(
                     "2026-03-28T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?"
                 )))
                 .andExpect(jsonPath("$.paymentMethod").value("GoPay"))
                 .andExpect(jsonPath("$.description").value("Grab Ride"))
                 .andExpect(jsonPath("$.merchant").doesNotExist())
-                .andExpect(jsonPath("$.tipeInput").value("MANUAL"))
-                .andExpect(jsonPath("$.statusValidasi").value("CONFIRMED"));
+                .andExpect(jsonPath("$.inputType").value("MANUAL"))
+                .andExpect(jsonPath("$.validationStatus").value("CONFIRMED"));
     }
 
     @Test
@@ -314,7 +314,7 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentMethod").value("Cash"))
                 .andExpect(jsonPath("$.description").value("Coffee Purchase"))
-                .andExpect(jsonPath("$.tipeInput").value("MANUAL"));
+                .andExpect(jsonPath("$.inputType").value("MANUAL"));
     }
 
     @Test
@@ -348,7 +348,7 @@ class ExpenseControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paymentMethod").value("OVO"))
                 .andExpect(jsonPath("$.description").value("Lunch"))
-                .andExpect(jsonPath("$.jumlah").value(50000));
+                .andExpect(jsonPath("$.amount").value(50000));
     }
 
     @Test
@@ -396,7 +396,7 @@ class ExpenseControllerIntegrationTest {
 
             when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
 
-            MockMultipartFile mockFile = new MockMultipartFile("file", "struk.jpg", "image/jpeg", "data".getBytes());
+            MockMultipartFile mockFile = new MockMultipartFile("file", "receipt.jpg", "image/jpeg", "data".getBytes());
 
             mockMvc.perform(multipart("/api/v1/expense/receipt")
                             .file(mockFile)
@@ -418,7 +418,7 @@ class ExpenseControllerIntegrationTest {
 
             when(transactionRepository.save(any())).thenThrow(new RuntimeException("DB Error"));
 
-            String requestBody = "{ \"text\": \"Notifikasi\" }";
+            String requestBody = "{ \"text\": \"Notification\" }";
 
             mockMvc.perform(post("/api/v1/expense/notification")
                             .header("Authorization", authHeader())
@@ -442,7 +442,7 @@ class ExpenseControllerIntegrationTest {
     private String guestAuthHeader() {
         AppUser guest = new AppUser();
         guest.setId(2L);
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setUsername("guest_123");
         guest.setIsGuest(true);
         when(userRepository.findById(2L)).thenReturn(Optional.of(guest));

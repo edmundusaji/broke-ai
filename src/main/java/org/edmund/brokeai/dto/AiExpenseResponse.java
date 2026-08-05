@@ -4,10 +4,10 @@ import lombok.Data;
 
 @Data
 public class AiExpenseResponse {
-    private String tanggal; // date
-    private Double total;
-    private String kategori;
+    private String date;
+    private String time;
+    private Double amount;
+    private String category;
     private String paymentMethod;
     private String description;
-    private String waktu; // time
 }

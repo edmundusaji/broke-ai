@@ -54,7 +54,7 @@ class AuthServiceImplTest {
         authService.register(request);
 
         verify(userRepository, times(1)).save(argThat(user ->
-                user.getNamaLengkap().equals("Edmundus Aji") &&
+                user.getFullName().equals("Edmundus Aji") &&
                         user.getUsername().equals("edmundus") &&
                         user.getEmail().equals("aji@mail.com") &&
                         user.getPassword().equals("encodedPassword") &&
@@ -85,7 +85,7 @@ class AuthServiceImplTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertTrue(exception.getReason().contains("Username is already in use"));
-        verify(userRepository, never()).save(any()); // Pastikan tidak ada data yang disimpan
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -106,7 +106,7 @@ class AuthServiceImplTest {
     void login_Success_ReturnsToken() {
         LoginRequest request = new LoginRequest(" edmundus ", "password123");
         AppUser mockUser = new AppUser();
-        mockUser.setNamaLengkap("Edmundus Aji");
+        mockUser.setFullName("Edmundus Aji");
         mockUser.setEmail("aji@mail.com");
         mockUser.setPassword("encodedPassword");
 
@@ -121,7 +121,7 @@ class AuthServiceImplTest {
         assertEquals("mock-jwt-token", response.token());
         assertEquals(3600L, response.expiresIn());
         assertFalse(response.isGuest());
-        assertEquals("Edmundus Aji", response.user().name());
+        assertEquals("Edmundus Aji", response.user().fullName());
     }
 
     @Test
@@ -219,7 +219,7 @@ class AuthServiceImplTest {
         assertTrue(response.isGuest());
         assertEquals(2, response.remainingAiTrials());
         assertTrue(response.username().startsWith("guest_"));
-        assertEquals("Guest User", response.user().name());
+        assertEquals("Guest User", response.user().fullName());
         assertNull(response.user().email());
         verify(userRepository).save(argThat(user ->
             Boolean.TRUE.equals(user.getIsGuest())
@@ -233,7 +233,7 @@ class AuthServiceImplTest {
         RegisterRequest request = new RegisterRequest(" Edmundus Aji ", " edmundus ", " AJI@mail.com ", "password123");
         AppUser guest = new AppUser();
         guest.setId(42L);
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setUsername("guest_123");
         guest.setIsGuest(true);
         guest.setAiTrialCount(1);
@@ -246,7 +246,7 @@ class AuthServiceImplTest {
         authService.register(request);
 
         assertEquals(42L, guest.getId());
-        assertEquals("Edmundus Aji", guest.getNamaLengkap());
+        assertEquals("Edmundus Aji", guest.getFullName());
         assertEquals("edmundus", guest.getUsername());
         assertEquals("aji@mail.com", guest.getEmail());
         assertEquals("encodedPassword", guest.getPassword());
@@ -322,7 +322,7 @@ class AuthServiceImplTest {
 
         assertEquals(42L, guest.getId());
         assertEquals("guest_123", guest.getUsername());
-        assertEquals("Edmundus Aji", guest.getNamaLengkap());
+        assertEquals("Edmundus Aji", guest.getFullName());
         assertEquals("aji@mail.com", guest.getEmail());
         assertEquals("encoded-password", guest.getPassword());
         assertFalse(guest.getIsGuest());
@@ -377,7 +377,7 @@ class AuthServiceImplTest {
     void getCurrentUser_Guest_ReturnsRoleAndRemainingTrials() {
         AppUser guest = new AppUser();
         guest.setUsername("guest_123");
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setIsGuest(true);
         guest.setAiTrialCount(1);
         when(currentUserService.getCurrentUser()).thenReturn(guest);
@@ -392,7 +392,7 @@ class AuthServiceImplTest {
     void getCurrentUser_RegisteredUser_ReturnsUserRoleAndNoTrialQuota() {
         AppUser user = new AppUser();
         user.setUsername("edmundus");
-        user.setNamaLengkap("Edmundus");
+        user.setFullName("Edmundus");
         user.setIsGuest(false);
         user.setAiTrialCount(null);
         when(currentUserService.getCurrentUser()).thenReturn(user);

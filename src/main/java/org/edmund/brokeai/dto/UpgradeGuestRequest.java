@@ -1,7 +1,7 @@
 package org.edmund.brokeai.dto;
 
 public record UpgradeGuestRequest(
-    String namaLengkap,
+    String fullName,
     String email,
     String password
 ) {
