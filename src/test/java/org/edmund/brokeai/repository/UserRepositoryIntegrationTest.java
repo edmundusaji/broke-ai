@@ -7,7 +7,10 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@DataJpaTest
+@DataJpaTest(properties = {
+    "spring.flyway.enabled=false",
+    "spring.jpa.hibernate.ddl-auto=create-drop"
+})
 class UserRepositoryIntegrationTest {
 
     @Autowired
@@ -16,7 +19,7 @@ class UserRepositoryIntegrationTest {
     @Test
     void guestAiTrialUpdates_AreAtomicAndBounded() {
         AppUser guest = new AppUser();
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setUsername("guest_repository_test");
         guest.setIsGuest(true);
         guest.setAiTrialCount(2);
@@ -34,7 +37,7 @@ class UserRepositoryIntegrationTest {
     @Test
     void registeredUser_CannotConsumeGuestTrials() {
         AppUser user = new AppUser();
-        user.setNamaLengkap("Registered User");
+        user.setFullName("Registered User");
         user.setUsername("registered_repository_test");
         user.setEmail("registered@example.com");
         user.setPassword("encoded-password");

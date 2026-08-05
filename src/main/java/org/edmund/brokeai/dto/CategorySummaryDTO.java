@@ -1,7 +1,4 @@
 package org.edmund.brokeai.dto;
 
-/**
- * DTO for pie chart
- * Contoh: "Makanan", 150000.0
- */
-public record CategorySummaryDTO(String kategori, Double totalAmount) {}
+/** DTO for a category summary, for example: "Food", 150000.0. */
+public record CategorySummaryDTO(String category, Double totalAmount) {}

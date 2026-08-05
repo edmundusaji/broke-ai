@@ -40,7 +40,7 @@ public class AuthServiceImpl implements AuthService {
         validateUniqueCredentials(username, email, guestUser);
 
         AppUser user = guestUser == null ? new AppUser() : guestUser;
-        user.setNamaLengkap(request.namaLengkap().trim());
+        user.setFullName(request.fullName().trim());
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password()));
@@ -70,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse guestLogin() {
         AppUser guest = new AppUser();
-        guest.setNamaLengkap("Guest User");
+        guest.setFullName("Guest User");
         guest.setUsername("guest_" + UUID.randomUUID().toString().replace("-", ""));
         guest.setEmail(null);
         guest.setPassword(null);
@@ -95,7 +95,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
         }
 
-        currentUser.setNamaLengkap(request.namaLengkap().trim());
+        currentUser.setFullName(request.fullName().trim());
         currentUser.setEmail(email);
         currentUser.setPassword(passwordEncoder.encode(request.password()));
         currentUser.setIsGuest(false);
@@ -110,7 +110,7 @@ public class AuthServiceImpl implements AuthService {
         AppUser currentUser = currentUserService.getCurrentUser();
         return new CurrentUserResponse(
             currentUser.getUsername(),
-            currentUser.getNamaLengkap(),
+            currentUser.getFullName(),
             currentUser.getEmail(),
             roleFor(currentUser),
             remainingAiTrials(currentUser)
@@ -119,7 +119,7 @@ public class AuthServiceImpl implements AuthService {
 
     private void validateRegisterRequest(RegisterRequest request) {
         if (request == null
-            || isBlank(request.namaLengkap())
+            || isBlank(request.fullName())
             || isBlank(request.username())
             || isBlank(request.email())
             || isBlank(request.password())) {
@@ -129,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
 
     private void validateUpgradeRequest(UpgradeGuestRequest request) {
         if (request == null
-            || isBlank(request.namaLengkap())
+            || isBlank(request.fullName())
             || isBlank(request.email())
             || isBlank(request.password())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guest upgrade data is incomplete");
@@ -154,7 +154,7 @@ public class AuthServiceImpl implements AuthService {
 
     private LoginResponse buildLoginResponse(AppUser user) {
         String token = jwtService.generateToken(user);
-        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(user.getNamaLengkap(), user.getEmail());
+        LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(user.getFullName(), user.getEmail());
         return new LoginResponse(
             token,
             jwtService.getExpirationSeconds(),

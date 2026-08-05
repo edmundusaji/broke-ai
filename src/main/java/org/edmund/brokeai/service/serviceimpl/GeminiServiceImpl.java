@@ -38,7 +38,7 @@ public class GeminiServiceImpl implements GeminiService {
 
     // Notification Entry Point
     @Override
-    public AiExpenseResponse prosesNotifikasi(String notificationText) {
+    public AiExpenseResponse processNotification(String notificationText) {
         try {
             GeminiRequest request = buildTextRequest(notificationText);
             return executeAndParse(request);
@@ -76,12 +76,12 @@ public class GeminiServiceImpl implements GeminiService {
         }
 
         String promptText = "Extract this receipt image. Return ONLY in pure JSON format " +
-                "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
-                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), " +
+                "with keys: date (format YYYY-MM-DD), time (format HH:mm:ss), " +
+                "amount (number without thousands separators), category (one concise word, ex: Food, Transportation, Top-Up), " +
                 "paymentMethod (the payment provider or rail, ex: GoPay, OVO, Bank BCA, Akulaku, QRIS), " +
                 "description (a concise transaction purpose or purchased item, ex: Coffee Purchase, KitaBisa Donation, Cold Medicine), " +
-                "and waktu (format HH:mm:ss). Do not use the storefront or merchant name as paymentMethod. " +
-                "if time not found return null. Without markdown ```json.";
+                "Do not use the storefront or merchant name as paymentMethod. " +
+                "If time is not found, return null. Do not wrap the JSON in markdown.";
 
         GeminiRequest.InlineData inlineData = new GeminiRequest.InlineData(mimeType, base64EncodedImage);
         GeminiRequest.Part textPart = new GeminiRequest.Part(promptText, null);
@@ -94,14 +94,14 @@ public class GeminiServiceImpl implements GeminiService {
     private static GeminiRequest buildTextRequest(String notificationText) {
         LocalDate today = LocalDate.now();
         String promptText = "Extract this transaction text notification. Return ONLY in pure JSON format " +
-                "with key: tanggal (format YYYY-MM-DD), total (number without dot/comma), " +
-                "kategori (decide 1 word, ex: Food, Transportation, Top-Up), " +
+                "with keys: date (format YYYY-MM-DD), time (format HH:mm:ss), " +
+                "amount (number without thousands separators), category (one concise word, ex: Food, Transportation, Top-Up), " +
                 "paymentMethod (the payment provider or rail, ex: GoPay, OVO, Bank BCA, Akulaku, QRIS), " +
                 "description (a concise transaction purpose or purchased item, ex: Coffee Purchase, KitaBisa Donation, Cold Medicine), " +
-                "and waktu (format HH:mm:ss). Do not use the storefront or merchant name as paymentMethod. " +
+                "Do not use the storefront or merchant name as paymentMethod. " +
                 "System Context: Today's date is " + today + ". " +
-                "If the provided text does not contain any explicit date, strictly return today's date as tanggal. " +
-                "If time not found return null. Without markdown ```json.\n\n" +
+                "If the provided text does not contain any explicit date, strictly return today's date as date. " +
+                "If time is not found, return null. Do not wrap the JSON in markdown.\n\n" +
                 "Notification Text: " + notificationText;
 
         GeminiRequest.Part textPart = new GeminiRequest.Part(promptText, null);

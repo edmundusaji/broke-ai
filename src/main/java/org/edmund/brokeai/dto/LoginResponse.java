@@ -10,6 +10,6 @@ public record LoginResponse(
     @JsonProperty("remaining_ai_trials") int remainingAiTrials,
     UserInfo user
 ) {
-    public record UserInfo(String name, String email) {
+    public record UserInfo(String fullName, String email) {
     }
 }

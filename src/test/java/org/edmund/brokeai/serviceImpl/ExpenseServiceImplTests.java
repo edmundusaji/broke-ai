@@ -57,26 +57,26 @@ class ExpenseServiceImplTests {
 
     @BeforeEach
     void setUp() {
-        mockFile = new MockMultipartFile("file", "struk.jpg",
+        mockFile = new MockMultipartFile("file", "receipt.jpg",
                 "image/jpeg", "dummy image content".getBytes());
 
         mockAiResponse = new AiExpenseResponse();
         mockAiResponse.setPaymentMethod("GoPay");
         mockAiResponse.setDescription("Coffee Purchase");
-        mockAiResponse.setTotal(55000.0);
-        mockAiResponse.setKategori("Makanan");
-        mockAiResponse.setTanggal("2026-03-28");
-        mockAiResponse.setWaktu("15:30:00");
+        mockAiResponse.setAmount(55000.0);
+        mockAiResponse.setCategory("Food");
+        mockAiResponse.setDate("2026-03-28");
+        mockAiResponse.setTime("15:30:00");
 
         mockTransaction = new Transaction();
         mockTransaction.setId(1L);
         mockTransaction.setPaymentMethod("GoPay");
         mockTransaction.setDescription("Coffee Purchase");
-        mockTransaction.setJumlah(55000.0);
+        mockTransaction.setAmount(55000.0);
 
         mockUser = new AppUser();
         mockUser.setId(10L);
-        mockUser.setNamaLengkap("Rani Test");
+        mockUser.setFullName("Rani Test");
         mockUser.setUsername("rani");
         mockUser.setEmail("rani@example.com");
 
@@ -106,7 +106,7 @@ class ExpenseServiceImplTests {
 
     @Test
     void saveReceipt_FailedDueToNullTotal_Test() {
-        mockAiResponse.setTotal(null);
+        mockAiResponse.setAmount(null);
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
@@ -121,11 +121,11 @@ class ExpenseServiceImplTests {
 
     @Test
     void saveNotification_Success_WithNullTimeFallback_Test() {
-        mockAiResponse.setTanggal("2026-03-28");
-        mockAiResponse.setWaktu(null);
+        mockAiResponse.setDate("2026-03-28");
+        mockAiResponse.setTime(null);
 
         String notifText = "Bayar 55000 di Kopi Kenangan";
-        when(geminiService.prosesNotifikasi(notifText)).thenReturn(mockAiResponse);
+        when(geminiService.processNotification(notifText)).thenReturn(mockAiResponse);
 
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
             Transaction saved = invocation.getArgument(0);
@@ -136,12 +136,12 @@ class ExpenseServiceImplTests {
         Transaction result = expenseServiceImpl.saveNotification(notifText);
 
         assertNotNull(result);
-        assertNotNull(result.getTanggal());
-        assertEquals("NOTIFICATION", result.getTipeInput());
+        assertNotNull(result.getDate());
+        assertEquals("NOTIFICATION", result.getInputType());
         assertEquals("GoPay", result.getPaymentMethod());
         assertEquals("Coffee Purchase", result.getDescription());
 
-        verify(geminiService, times(1)).prosesNotifikasi(notifText);
+        verify(geminiService, times(1)).processNotification(notifText);
         verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
 
@@ -158,7 +158,7 @@ class ExpenseServiceImplTests {
 
     @Test
     void saveNotification_FailedDueToNullAiResponse_Test() {
-        when(geminiService.prosesNotifikasi(anyString())).thenReturn(null);
+        when(geminiService.processNotification(anyString())).thenReturn(null);
 
         assertThrows(RuntimeException.class, () -> {
             expenseServiceImpl.saveNotification("Notif BCA");
@@ -167,8 +167,8 @@ class ExpenseServiceImplTests {
 
     @Test
     void saveNotification_FailedDueToNullTotal_Test() {
-        mockAiResponse.setTotal(null);
-        when(geminiService.prosesNotifikasi(anyString())).thenReturn(mockAiResponse);
+        mockAiResponse.setAmount(null);
+        when(geminiService.processNotification(anyString())).thenReturn(mockAiResponse);
 
         assertThrows(RuntimeException.class, () -> {
             expenseServiceImpl.saveNotification("Notif OVO");
@@ -179,53 +179,53 @@ class ExpenseServiceImplTests {
     void parseDateAndTime_FallbackForInvalidDate_Test() {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
-        mockAiResponse.setTanggal(null);
+        mockAiResponse.setDate(null);
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result1 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result1.getTanggal());
+        assertNotNull(result1.getDate());
 
-        mockAiResponse.setTanggal("28 Maret 2026");
+        mockAiResponse.setDate("March 28, 2026");
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result2 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result2.getTanggal());
+        assertNotNull(result2.getDate());
 
-        mockAiResponse.setTanggal("   ");
+        mockAiResponse.setDate("   ");
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result3 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result3.getTanggal());
+        assertNotNull(result3.getDate());
     }
 
     @Test
     void parseDateAndTime_FallbackForInvalidTime_Test() {
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(i -> i.getArgument(0));
 
-        mockAiResponse.setTanggal("2026-03-28");
-        mockAiResponse.setWaktu("null");
+        mockAiResponse.setDate("2026-03-28");
+        mockAiResponse.setTime("null");
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result1 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result1.getTanggal());
+        assertNotNull(result1.getDate());
 
-        mockAiResponse.setWaktu("Jam 3 Sore");
+        mockAiResponse.setTime("3 PM");
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result2 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result2.getTanggal());
+        assertNotNull(result2.getDate());
 
-        mockAiResponse.setWaktu("   ");
+        mockAiResponse.setTime("   ");
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result3 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result3.getTanggal());
+        assertNotNull(result3.getDate());
 
-        mockAiResponse.setWaktu(null);
+        mockAiResponse.setTime(null);
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
 
         Transaction result4 = expenseServiceImpl.saveReceipt(mockFile);
-        assertNotNull(result4.getTanggal());
+        assertNotNull(result4.getDate());
     }
 
     @Test
@@ -239,14 +239,14 @@ class ExpenseServiceImplTests {
         Transaction result = expenseServiceImpl.createManualExpense(request);
         LocalDateTime afterCreation = LocalDateTime.now();
 
-        assertEquals("MANUAL", result.getTipeInput());
-        assertEquals("CONFIRMED", result.getStatusValidasi());
+        assertEquals("MANUAL", result.getInputType());
+        assertEquals("CONFIRMED", result.getValidationStatus());
         assertEquals(mockUser, result.getUser());
-        assertFalse(result.getTanggal().isBefore(beforeCreation));
-        assertFalse(result.getTanggal().isAfter(afterCreation));
-        assertNotEquals(LocalTime.MIDNIGHT, result.getTanggal().toLocalTime());
-        assertEquals(75000.0, result.getJumlah());
-        assertEquals("Food", result.getKategori());
+        assertFalse(result.getDate().isBefore(beforeCreation));
+        assertFalse(result.getDate().isAfter(afterCreation));
+        assertNotEquals(LocalTime.MIDNIGHT, result.getDate().toLocalTime());
+        assertEquals(75000.0, result.getAmount());
+        assertEquals("Food", result.getCategory());
         assertEquals("GoPay", result.getPaymentMethod());
         assertEquals("Coffee Purchase", result.getDescription());
         verify(transactionRepository).save(result);
@@ -257,15 +257,15 @@ class ExpenseServiceImplTests {
         ExpenseRequest request = validExpenseRequest();
         Transaction transaction = new Transaction();
         transaction.setId(99L);
-        transaction.setTanggal(LocalDateTime.of(2026, 3, 30, 14, 15, 16));
+        transaction.setDate(LocalDateTime.of(2026, 3, 30, 14, 15, 16));
         when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.of(transaction));
         when(transactionRepository.save(transaction)).thenReturn(transaction);
 
         Transaction result = expenseServiceImpl.updateExpense(99L, request);
 
         assertSame(transaction, result);
-        assertEquals(LocalDateTime.of(2026, 4, 1, 14, 15, 16), transaction.getTanggal());
-        assertEquals("Food", transaction.getKategori());
+        assertEquals(LocalDateTime.of(2026, 4, 1, 14, 15, 16), transaction.getDate());
+        assertEquals("Food", transaction.getCategory());
         assertEquals("GoPay", transaction.getPaymentMethod());
         assertEquals("Coffee Purchase", transaction.getDescription());
         verify(transactionRepository).findByIdAndUser(99L, mockUser);
@@ -314,12 +314,12 @@ class ExpenseServiceImplTests {
     @Test
     void getRecentExpenses_ReturnsFiveMostRecentTransactionsForCurrentUser() {
         List<Transaction> recent = List.of(mockTransaction);
-        when(transactionRepository.findTop5ByUserOrderByTanggalDesc(mockUser)).thenReturn(recent);
+        when(transactionRepository.findTop5ByUserOrderByDateDesc(mockUser)).thenReturn(recent);
 
         List<Transaction> result = expenseServiceImpl.getRecentExpenses();
 
         assertSame(recent, result);
-        verify(transactionRepository).findTop5ByUserOrderByTanggalDesc(mockUser);
+        verify(transactionRepository).findTop5ByUserOrderByDateDesc(mockUser);
     }
 
     @Test
@@ -342,7 +342,7 @@ class ExpenseServiceImplTests {
         mockUser.setAiTrialCount(2);
         when(userRepository.consumeGuestAiTrial(10L)).thenReturn(1, 1, 0);
         when(geminiService.receiptProcess(mockFile)).thenReturn(mockAiResponse);
-        when(geminiService.prosesNotifikasi("Payment notification")).thenReturn(mockAiResponse);
+        when(geminiService.processNotification("Payment notification")).thenReturn(mockAiResponse);
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         expenseServiceImpl.saveReceipt(mockFile);
