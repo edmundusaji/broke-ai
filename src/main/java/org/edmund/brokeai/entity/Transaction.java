@@ -3,6 +3,7 @@ package org.edmund.brokeai.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
@@ -37,4 +38,17 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private AppUser user;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    @Version
+    @Column(nullable = false)
+    private Long revision = 1L;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

@@ -1,5 +1,6 @@
 package org.edmund.brokeai.service.serviceimpl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.service.GeminiOutboundService;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 @Service
+@Slf4j
 public class GeminiOutboundServiceImpl implements GeminiOutboundService {
 
     @Value("${gemini.api.key}")
@@ -18,12 +20,9 @@ public class GeminiOutboundServiceImpl implements GeminiOutboundService {
 
     @Override
     public GeminiResponse sendToGemini(GeminiRequest request) {
-
         String fullUrl = geminiApiUrl + geminiApiKey;
         RestTemplate restTemplate = new RestTemplate();
-
-        System.out.println("🚀 [OUTBOUND] Request sent to Google Gemini API...");
-
+        log.debug("Sending request to Google Gemini API");
         return restTemplate.postForObject(fullUrl, request, GeminiResponse.class);
     }
 }

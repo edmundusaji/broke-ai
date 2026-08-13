@@ -10,6 +10,7 @@ import org.edmund.brokeai.service.AuthService;
 import org.edmund.brokeai.service.RateLimitingService;
 import org.edmund.brokeai.security.JwtService;
 import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.repository.UserSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,9 @@ class AuthControllerTest {
     @MockitoBean
     private UserRepository userRepository;
 
+    @MockitoBean
+    private UserSessionRepository userSessionRepository;
+
     @Test
     void register_Success_ReturnsOk() throws Exception {
         RegisterRequest request = new RegisterRequest("Edmundus Aji", "edmundus", "aji@mail.com", "password123");
@@ -57,6 +61,22 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("User registered successfully"));
+    }
+
+    @Test
+    void register_ShortUsername_ReturnsSpecificValidationError() throws Exception {
+        RegisterRequest request = new RegisterRequest("ed", "ed", "ed@g.com", "ed");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.field").value("username"))
+                .andExpect(jsonPath("$.error.message")
+                    .value("Username must contain between 3 and 30 characters."));
+
+        Mockito.verifyNoInteractions(authService);
     }
 
     @Test

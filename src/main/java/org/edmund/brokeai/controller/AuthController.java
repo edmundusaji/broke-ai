@@ -1,5 +1,6 @@
 package org.edmund.brokeai.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.AuthMessageResponse;
 import org.edmund.brokeai.dto.LoginRequest;
@@ -23,7 +24,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthMessageResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthMessageResponse> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.ok(new AuthMessageResponse("User registered successfully"));
     }

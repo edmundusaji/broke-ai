@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.repository.UserSessionRepository;
+import org.edmund.brokeai.entity.UserSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -30,6 +33,9 @@ class JwtAuthenticationFilterTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserSessionRepository userSessionRepository;
 
     @Mock
     private HttpServletRequest request;
@@ -77,6 +83,7 @@ class JwtAuthenticationFilterTest {
         AppUser mockUser = new AppUser();
         mockUser.setUsername("edmundus");
         when(userRepository.findById(99L)).thenReturn(Optional.of(mockUser));
+        stubSession("valid.token.here", mockUser);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -95,6 +102,7 @@ class JwtAuthenticationFilterTest {
         AppUser guest = new AppUser();
         guest.setIsGuest(true);
         when(userRepository.findById(100L)).thenReturn(Optional.of(guest));
+        stubSession("guest.token.here", guest);
 
         filter.doFilterInternal(request, response, filterChain);
 
@@ -132,5 +140,15 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(filterChain).doFilter(request, response);
+    }
+
+    private void stubSession(String token, AppUser user) {
+        when(userSessionRepository.findByRefreshTokenHash(anyString())).thenReturn(Optional.empty());
+        when(jwtService.extractExpiration(token)).thenReturn(Instant.now().plusSeconds(3600));
+        when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> {
+            UserSession session = invocation.getArgument(0);
+            session.setId(java.util.UUID.randomUUID());
+            return session;
+        });
     }
 }

@@ -5,8 +5,11 @@ import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.repository.TransactionRepository;
 import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.repository.UserSessionRepository;
+import org.edmund.brokeai.entity.UserSession;
 import org.edmund.brokeai.security.JwtService;
 import org.edmund.brokeai.service.RateLimitingService;
+import org.edmund.brokeai.service.UserSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -59,11 +62,23 @@ class ExpenseControllerIntegrationTest {
     @MockitoBean
     private RateLimitingService rateLimitingService;
 
+    @MockitoBean
+    private UserSessionRepository userSessionRepository;
+
+    @MockitoBean
+    private UserSyncService userSyncService;
+
     private GeminiResponse mockGeminiResponse;
     private AppUser mockUser;
 
     @BeforeEach
     void setUp() {
+        when(userSessionRepository.findByRefreshTokenHash(anyString())).thenReturn(Optional.empty());
+        when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> {
+            UserSession session = invocation.getArgument(0);
+            session.setId(java.util.UUID.randomUUID());
+            return session;
+        });
         String fakeJsonResponse = "{\n" +
                 "  \"date\": \"2026-03-28\",\n" +
                 "  \"time\": \"09:15:00\",\n" +

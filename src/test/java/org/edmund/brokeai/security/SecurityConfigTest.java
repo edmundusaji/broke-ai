@@ -7,13 +7,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 class SecurityConfigTest {
 
@@ -30,11 +31,11 @@ class SecurityConfigTest {
     }
 
     @Test
-    void passwordEncoder_ReturnsBCryptPasswordEncoder() {
+    void passwordEncoder_ReturnsArgon2idMigratingPasswordEncoder() {
         PasswordEncoder encoder = securityConfig.passwordEncoder();
 
         assertNotNull(encoder);
-        assertTrue(encoder instanceof BCryptPasswordEncoder);
+        assertTrue(encoder instanceof Argon2idMigratingPasswordEncoder);
     }
 
     @Test
@@ -50,16 +51,20 @@ class SecurityConfigTest {
     }
 
     @Test
-    void unauthorizedEntryPoint_Sends401Error() throws Exception {
+    void unauthorizedEntryPoint_ReturnsContractError() throws Exception {
         AuthenticationEntryPoint entryPoint = ReflectionTestUtils.invokeMethod(securityConfig, "unauthorizedEntryPoint");
         assertNotNull(entryPoint);
 
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
         AuthenticationException authException = mock(AuthenticationException.class);
 
         entryPoint.commence(request, response, authException);
 
-        verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        verify(response).setContentType("application/json");
+        assertTrue(body.toString().contains("UNAUTHENTICATED"));
     }
 }

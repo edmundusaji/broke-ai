@@ -3,6 +3,7 @@ package org.edmund.brokeai.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.dto.ExpenseRequest;
 import org.edmund.brokeai.entity.Transaction;
@@ -20,6 +21,7 @@ import java.util.List;
 @RequestMapping("/api/v1/expense")
 @SecurityRequirement(name = "Bearer Authentication")
 @RequiredArgsConstructor
+@Slf4j
 
 /** entrypoint */
 public class ExpenseController {
@@ -39,7 +41,7 @@ public class ExpenseController {
             ExpenseSummaryResponse summary = expenseService.getExpenseSummary(month, year);
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
-            System.err.println("Error in expense summary controller: " + e.getMessage());
+            log.error("Expense summary request failed ({})", e.getClass().getSimpleName());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -58,7 +60,7 @@ public class ExpenseController {
             List<Transaction> history = expenseService.getExpenseHistory(month, year);
             return ResponseEntity.ok(history);
         } catch (Exception e) {
-            System.err.println("Error in expense history controller: " + e.getMessage());
+            log.error("Expense history request failed ({})", e.getClass().getSimpleName());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -69,7 +71,7 @@ public class ExpenseController {
         try {
             return ResponseEntity.ok(expenseService.getRecentExpenses());
         } catch (Exception e) {
-            System.err.println("Error in recent expenses controller: " + e.getMessage());
+            log.error("Recent expense request failed ({})", e.getClass().getSimpleName());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -87,7 +89,7 @@ public class ExpenseController {
         } catch (GuestAiTrialLimitException e) {
             throw e;
         } catch (Exception e) {
-            System.err.println("Error in receipt controller: " + e.getMessage());
+            log.error("Receipt processing request failed ({})", e.getClass().getSimpleName());
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -108,7 +110,7 @@ public class ExpenseController {
         } catch (GuestAiTrialLimitException e) {
             throw e;
         } catch (Exception e) {
-            System.err.println("Error in notification controller: " + e.getMessage());
+            log.error("Notification processing request failed ({})", e.getClass().getSimpleName());
             return ResponseEntity.internalServerError().build();
         }
     }

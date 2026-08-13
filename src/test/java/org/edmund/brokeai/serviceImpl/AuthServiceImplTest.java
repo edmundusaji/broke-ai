@@ -6,6 +6,7 @@ import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.dto.CurrentUserResponse;
 import org.edmund.brokeai.entity.AppUser;
+import org.edmund.brokeai.exception.ApiException;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.security.JwtService;
 import org.edmund.brokeai.security.CurrentUserService;
@@ -80,11 +81,12 @@ class AuthServiceImplTest {
         RegisterRequest request = new RegisterRequest("Aji", "edmundus", "aji@mail.com", "pass");
         when(userRepository.existsByUsername("edmundus")).thenReturn(true);
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
                 () -> authService.register(request));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertTrue(exception.getReason().contains("Username is already in use"));
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("USERNAME_ALREADY_USED", exception.getCode());
+        assertEquals("username", exception.getField());
         verify(userRepository, never()).save(any());
     }
 
@@ -94,11 +96,12 @@ class AuthServiceImplTest {
         when(userRepository.existsByUsername("edmundus")).thenReturn(false);
         when(userRepository.existsByEmail("aji@mail.com")).thenReturn(true);
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
                 () -> authService.register(request));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertTrue(exception.getReason().contains("Email is already in use"));
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("EMAIL_ALREADY_USED", exception.getCode());
+        assertEquals("email", exception.getField());
         verify(userRepository, never()).save(any());
     }
 
@@ -219,6 +222,7 @@ class AuthServiceImplTest {
         assertTrue(response.isGuest());
         assertEquals(2, response.remainingAiTrials());
         assertTrue(response.username().startsWith("guest_"));
+        assertEquals(30, response.username().length());
         assertEquals("Guest User", response.user().fullName());
         assertNull(response.user().email());
         verify(userRepository).save(argThat(user ->
@@ -263,13 +267,14 @@ class AuthServiceImplTest {
         when(currentUserService.getCurrentUserIfAuthenticated()).thenReturn(Optional.of(guest));
         when(userRepository.existsByUsernameAndIdNot("edmundus", 42L)).thenReturn(true);
 
-        ResponseStatusException exception = assertThrows(
-            ResponseStatusException.class,
+        ApiException exception = assertThrows(
+            ApiException.class,
             () -> authService.register(new RegisterRequest("Aji", "edmundus", "aji@mail.com", "password123"))
         );
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("Username is already in use", exception.getReason());
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("USERNAME_ALREADY_USED", exception.getCode());
+        assertEquals("username", exception.getField());
         verify(userRepository, never()).save(any());
     }
 
@@ -280,13 +285,14 @@ class AuthServiceImplTest {
         when(userRepository.existsByUsernameAndIdNot("edmundus", 42L)).thenReturn(false);
         when(userRepository.existsByEmailAndIdNot("aji@mail.com", 42L)).thenReturn(true);
 
-        ResponseStatusException exception = assertThrows(
-            ResponseStatusException.class,
+        ApiException exception = assertThrows(
+            ApiException.class,
             () -> authService.register(new RegisterRequest("Aji", "edmundus", "aji@mail.com", "password123"))
         );
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals("Email is already in use", exception.getReason());
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("EMAIL_ALREADY_USED", exception.getCode());
+        assertEquals("email", exception.getField());
         verify(userRepository, never()).save(any());
     }
 

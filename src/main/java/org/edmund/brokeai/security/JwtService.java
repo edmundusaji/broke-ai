@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -39,6 +40,7 @@ public class JwtService {
         payload.put("userId", user.getId());
         payload.put("username", user.getUsername());
         payload.put("role", Boolean.TRUE.equals(user.getIsGuest()) ? "ROLE_GUEST" : "ROLE_USER");
+        payload.put("jti", UUID.randomUUID().toString());
         payload.put("iat", now);
         payload.put("exp", now + expirationSeconds);
 
@@ -53,6 +55,12 @@ public class JwtService {
             return number.longValue();
         }
         throw new IllegalArgumentException("Token does not contain a valid userId");
+    }
+
+    public Instant extractExpiration(String token) {
+        Object expiration = parseAndValidate(token).get("exp");
+        if (expiration instanceof Number number) return Instant.ofEpochSecond(number.longValue());
+        throw new IllegalArgumentException("Token does not contain a valid expiration");
     }
 
     private Map<String, Object> parseAndValidate(String token) {

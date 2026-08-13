@@ -18,6 +18,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 import static org.mockito.Mockito.*;
 
@@ -56,7 +58,7 @@ class AiRateLimitingFilterTest {
 
         filter.doFilterInternal(request, response, filterChain);
 
-        // Harus dilewatkan tanpa memotong kuota limit
+        // A non-user principal must pass without consuming a user quota.
         verify(rateLimitingService, never()).tryConsume(anyLong());
         verify(filterChain).doFilter(request, response);
     }
@@ -113,10 +115,12 @@ class AiRateLimitingFilterTest {
         );
 
         when(rateLimitingService.tryConsume(99L)).thenReturn(false);
+        StringWriter body = responseBody();
 
         filter.doFilterInternal(request, response, filterChain);
 
-        verify(response).sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "AI request limit exceeded");
+        verify(response).setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        org.junit.jupiter.api.Assertions.assertTrue(body.toString().contains("RATE_LIMITED"));
         verify(filterChain, never()).doFilter(request, response);
     }
 
@@ -152,10 +156,12 @@ class AiRateLimitingFilterTest {
         when(request.getMethod()).thenReturn("POST");
         when(request.getRemoteAddr()).thenReturn("203.0.113.9");
         when(rateLimitingService.tryConsumeAuth("203.0.113.9")).thenReturn(false);
+        StringWriter body = responseBody();
 
         filter.doFilterInternal(request, response, filterChain);
 
-        verify(response).sendError(HttpStatus.TOO_MANY_REQUESTS.value(), "Too many authentication attempts");
+        verify(response).setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        org.junit.jupiter.api.Assertions.assertTrue(body.toString().contains("RATE_LIMITED"));
         verify(filterChain, never()).doFilter(request, response);
     }
 
@@ -171,5 +177,11 @@ class AiRateLimitingFilterTest {
 
         verify(rateLimitingService).tryConsumeAuth("203.0.113.10");
         verify(filterChain).doFilter(request, response);
+    }
+
+    private StringWriter responseBody() throws IOException {
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        return body;
     }
 }

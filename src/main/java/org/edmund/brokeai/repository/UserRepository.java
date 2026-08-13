@@ -18,9 +18,17 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
 
     boolean existsByUsernameAndIdNot(String username, Long id);
 
+    boolean existsByUsernameIgnoreCase(String username);
+
+    boolean existsByUsernameIgnoreCaseAndIdNot(String username, Long id);
+
     boolean existsByEmail(String email);
 
     boolean existsByEmailAndIdNot(String email, Long id);
+
+    boolean existsByEmailIgnoreCase(String email);
+
+    boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
