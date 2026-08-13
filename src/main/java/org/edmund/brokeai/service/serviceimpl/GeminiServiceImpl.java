@@ -31,7 +31,7 @@ public class GeminiServiceImpl implements GeminiService {
             GeminiRequest request = buildImageRequest(file, base64EncodedImage);
             return executeAndParse(request);
         } catch (Exception e) {
-            log.error("Failed to Process AI (Receipt): {}", e.getMessage(), e);
+            log.error("AI receipt processing failed ({})", e.getClass().getSimpleName());
         }
         return new AiExpenseResponse();
     }
@@ -43,7 +43,7 @@ public class GeminiServiceImpl implements GeminiService {
             GeminiRequest request = buildTextRequest(notificationText);
             return executeAndParse(request);
         } catch (Exception e) {
-            log.error("Failed to Process AI (Notification): {}", e.getMessage(), e);
+            log.error("AI notification processing failed ({})", e.getClass().getSimpleName());
         }
         return new AiExpenseResponse();
     }

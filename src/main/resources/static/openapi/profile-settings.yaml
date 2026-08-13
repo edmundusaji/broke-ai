@@ -1,0 +1,1678 @@
+openapi: 3.1.0
+info:
+  title: Broke.AI Profile and Settings API
+  version: 1.0.0
+  description: |
+    Production contract for signed-in profile, security, preferences, privacy,
+    data controls, and support features. App-lock secrets and biometric data are
+    intentionally excluded and must remain protected on the user's device.
+
+    Password implementations must accept long passphrases without arbitrary
+    composition rules, reject compromised/common passwords, rate-limit sensitive
+    operations, and hash new passwords with Argon2id. Existing bcrypt hashes may
+    be upgraded after successful authentication.
+servers:
+  - url: /api
+    description: Application API base path
+security:
+  - bearerAuth: []
+tags:
+  - name: Profile
+  - name: Security
+  - name: Preferences
+  - name: Notifications
+  - name: Privacy and data
+  - name: Support
+
+paths:
+  /v1/me:
+    get:
+      tags: [Profile]
+      operationId: getCurrentProfile
+      summary: Get the canonical signed-in profile
+      responses:
+        '200':
+          description: Current profile
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Profile]
+      operationId: updateCurrentProfile
+      summary: Update full name, username, or phone
+      description: Creates an audit event and returns the canonical profile.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+      responses:
+        '200':
+          description: Updated canonical profile
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/ConflictingUpdate'
+
+  /v1/usernames/{username}/availability:
+    get:
+      tags: [Profile]
+      operationId: checkUsernameAvailability
+      summary: Check case-insensitive username availability
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 30
+      responses:
+        '200':
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsernameAvailabilityEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/avatar/upload-url:
+    post:
+      tags: [Profile]
+      operationId: createAvatarUploadUrl
+      summary: Create a short-lived signed avatar upload URL
+      description: Accepts JPEG, PNG, or WebP files no larger than 5 MiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarUploadRequest'
+      responses:
+        '200':
+          description: Signed object-storage upload details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarUploadEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/me/avatar:
+    delete:
+      tags: [Profile]
+      operationId: deleteAvatar
+      summary: Remove the current profile photo
+      responses:
+        '200':
+          description: Canonical profile without an avatar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/avatar/uploads/{uploadId}:
+    put:
+      tags: [Profile]
+      operationId: uploadAvatarContent
+      summary: Upload avatar bytes through the short-lived one-time URL
+      security: []
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: {type: string, format: binary}
+          image/png:
+            schema: {type: string, format: binary}
+          image/webp:
+            schema: {type: string, format: binary}
+      responses:
+        '200':
+          description: Avatar upload completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: object
+                    required: [success]
+                    properties:
+                      success: {type: boolean}
+                  meta:
+                    $ref: '#/components/schemas/ResponseMeta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/me/avatar/content:
+    get:
+      tags: [Profile]
+      operationId: getAvatarContent
+      summary: Get the signed-in user's avatar bytes
+      responses:
+        '200':
+          description: Avatar image bytes
+          content:
+            image/jpeg:
+              schema: {type: string, format: binary}
+            image/png:
+              schema: {type: string, format: binary}
+            image/webp:
+              schema: {type: string, format: binary}
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/me/email-change:
+    post:
+      tags: [Profile]
+      operationId: requestEmailChange
+      summary: Request a verified email change
+      description: The old email remains active until verification succeeds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailChangeRequest'
+      responses:
+        '202':
+          description: Verification sent to the pending email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailChangeEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/me/email-change/verify:
+    post:
+      tags: [Profile]
+      operationId: verifyEmailChange
+      summary: Verify and activate the pending email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [verificationToken]
+              properties:
+                verificationToken:
+                  type: string
+                  minLength: 32
+                  writeOnly: true
+      responses:
+        '200':
+          description: Updated canonical profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/me/password/change:
+    post:
+      tags: [Security]
+      operationId: changePassword
+      summary: Change the signed-in user's password
+      description: |
+        Verifies the current password, rejects blocklisted passwords, hashes the
+        new password with Argon2id, and revokes other sessions. Critical security
+        notifications are sent regardless of the optional security-alert setting.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+      responses:
+        '200':
+          description: Password changed and sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordChangeEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/PasswordCompromised'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/me/sessions:
+    get:
+      tags: [Security]
+      operationId: listSessions
+      summary: List active and recently revoked sessions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paginated sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPageEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/sessions/{sessionId}:
+    delete:
+      tags: [Security]
+      operationId: revokeSession
+      summary: Revoke one owned session
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ActionAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/me/sessions/others:
+    delete:
+      tags: [Security]
+      operationId: revokeOtherSessions
+      summary: Revoke every session except the current one
+      responses:
+        '200':
+          $ref: '#/components/responses/ActionAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/preferences:
+    get:
+      tags: [Preferences]
+      operationId: getPreferences
+      summary: Get currency, locale, time-zone, and theme preferences
+      responses:
+        '200':
+          description: Current preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Preferences]
+      operationId: updatePreferences
+      summary: Update preferences using optimistic concurrency
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferencesUpdateRequest'
+      responses:
+        '200':
+          description: Updated preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '412':
+          $ref: '#/components/responses/ConflictingUpdate'
+
+  /v1/me/notification-preferences:
+    get:
+      tags: [Notifications]
+      operationId: getNotificationPreferences
+      summary: Get notification preferences
+      responses:
+        '200':
+          description: Current notification preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Notifications]
+      operationId: updateNotificationPreferences
+      summary: Update notification preferences
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesUpdateRequest'
+      responses:
+        '200':
+          description: Updated notification preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '412':
+          $ref: '#/components/responses/ConflictingUpdate'
+
+  /v1/me/devices:
+    post:
+      tags: [Notifications]
+      operationId: registerDevice
+      summary: Register or rotate an FCM/APNs push token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistrationRequest'
+      responses:
+        '200':
+          description: Registered device metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/devices/{deviceId}:
+    delete:
+      tags: [Notifications]
+      operationId: unregisterDevice
+      summary: Remove an owned device and its encrypted push token
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ActionAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/me/sync-status:
+    get:
+      tags: [Privacy and data]
+      operationId: getSyncStatus
+      summary: Get backup and synchronization state
+      responses:
+        '200':
+          description: Current synchronization state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatusEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/me/privacy-preferences:
+    get:
+      tags: [Privacy and data]
+      operationId: getPrivacyPreferences
+      summary: Get privacy and consent preferences
+      responses:
+        '200':
+          description: Current privacy preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyPreferencesEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Privacy and data]
+      operationId: updatePrivacyPreferences
+      summary: Update privacy consent immediately
+      description: Older client revisions are rejected and cannot overwrite newer consent.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivacyPreferencesUpdateRequest'
+      responses:
+        '200':
+          description: Updated privacy preferences
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyPreferencesEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '412':
+          $ref: '#/components/responses/ConflictingUpdate'
+
+  /v1/me/data-exports:
+    post:
+      tags: [Privacy and data]
+      operationId: requestDataExport
+      summary: Queue a ZIP export containing JSON and CSV
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Export queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/me/data-exports/{jobId}:
+    get:
+      tags: [Privacy and data]
+      operationId: getDataExport
+      summary: Get export status and a short-lived URL when ready
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Export job state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExportEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Export is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/me/data-exports/{jobId}/download:
+    get:
+      tags: [Privacy and data]
+      operationId: downloadDataExport
+      summary: Download a completed export through a short-lived signed token
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ZIP archive containing JSON and CSV files
+          content:
+            application/zip:
+              schema: {type: string, format: binary}
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /v1/me/transactions/clear:
+    post:
+      tags: [Privacy and data]
+      operationId: clearTransactionHistory
+      summary: Soft-delete all owned transactions with a seven-day recovery window
+      description: Also invalidates derived summaries and cached AI insights.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClearTransactionsRequest'
+      responses:
+        '202':
+          description: Clear operation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearTransactionsEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/me/deletion-request:
+    post:
+      tags: [Privacy and data]
+      operationId: requestAccountDeletion
+      summary: Request account deletion and revoke all sessions
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionRequest'
+      responses:
+        '202':
+          description: Deletion scheduled after the seven-day grace period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      tags: [Privacy and data]
+      operationId: cancelAccountDeletion
+      summary: Cancel a pending deletion during the grace period
+      responses:
+        '200':
+          $ref: '#/components/responses/ActionAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/support/faqs:
+    get:
+      tags: [Support]
+      operationId: listFaqs
+      summary: List published FAQ articles
+      parameters:
+        - name: locale
+          in: query
+          schema:
+            type: string
+            default: en
+        - name: category
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Published FAQ page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqPageEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /v1/support/tickets:
+    post:
+      tags: [Support]
+      operationId: createSupportTicket
+      summary: Submit a support request or bug report
+      description: Financial data, receipt images, and tokens must never be attached automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupportTicketRequest'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/support/tickets/{ticketId}:
+    get:
+      tags: [Support]
+      operationId: getSupportTicket
+      summary: Get one owned support ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportTicketEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Revision ETag returned by the most recent GET or PATCH.
+      schema:
+        type: string
+        pattern: '^"[0-9]+"$'
+      example: '"7"'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 255
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    PageSize:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    ETag:
+      description: Quoted current resource revision.
+      schema:
+        type: string
+      example: '"7"'
+
+  responses:
+    ActionAccepted:
+      description: Action completed or accepted
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ActionEnvelope'
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: The request contains invalid data.
+              field: fullName
+              requestId: 550e8400-e29b-41d4-a716-446655440000
+    Unauthenticated:
+      description: Authentication is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: Authentication is required.
+              requestId: 550e8400-e29b-41d4-a716-446655440000
+    Conflict:
+      description: A unique value or workflow state conflicts with existing data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictingUpdate:
+      description: If-Match is stale
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: CONFLICTING_UPDATE
+              message: This resource was updated on another device.
+              requestId: 550e8400-e29b-41d4-a716-446655440000
+    PasswordCompromised:
+      description: The new password appears on the configured password blocklist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: PASSWORD_COMPROMISED
+              message: Choose a password that has not appeared in known breaches.
+              field: newPassword
+              requestId: 550e8400-e29b-41d4-a716-446655440000
+    RateLimited:
+      description: Sensitive-operation rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until another attempt is allowed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Too many attempts. Try again later.
+              requestId: 550e8400-e29b-41d4-a716-446655440000
+    NotFound:
+      description: The owned resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+  schemas:
+    ResponseMeta:
+      type: object
+      additionalProperties: false
+      required: [requestId, serverTime]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        serverTime:
+          type: string
+          format: date-time
+
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - REAUTHENTICATION_REQUIRED
+        - CURRENT_PASSWORD_INVALID
+        - PASSWORD_COMPROMISED
+        - USERNAME_ALREADY_USED
+        - EMAIL_ALREADY_USED
+        - EMAIL_VERIFICATION_REQUIRED
+        - RATE_LIMITED
+        - CONFLICTING_UPDATE
+        - EXPORT_NOT_READY
+        - RESOURCE_NOT_FOUND
+
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, requestId]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            field:
+              type: [string, 'null']
+            requestId:
+              type: string
+              format: uuid
+
+    ActionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [success]
+          properties:
+            success:
+              type: boolean
+              const: true
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    Profile:
+      type: object
+      additionalProperties: false
+      required: [id, fullName, username, email, status, revision, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        email:
+          type: string
+          format: email
+          description: Verified active email, normalized to lowercase.
+        pendingEmail:
+          type: [string, 'null']
+          format: email
+        emailVerifiedAt:
+          type: [string, 'null']
+          format: date-time
+        phone:
+          type: [string, 'null']
+          pattern: '^\+[1-9][0-9]{7,14}$'
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived read URL or CDN URL; never an object-storage key.
+        status:
+          type: string
+          enum: [active, pending_deletion, deleted, suspended]
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Profile'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ProfileUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        phone:
+          type: [string, 'null']
+          pattern: '^\+[1-9][0-9]{7,14}$'
+
+    UsernameAvailabilityEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [username, available]
+          properties:
+            username:
+              type: string
+            available:
+              type: boolean
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    AvatarUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [contentType, sizeBytes]
+      properties:
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 5242880
+
+    AvatarUploadEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [uploadId, uploadUrl, expiresAt]
+          properties:
+            uploadId:
+              type: string
+              format: uuid
+            uploadUrl:
+              type: string
+              format: uri
+            expiresAt:
+              type: string
+              format: date-time
+            requiredHeaders:
+              type: object
+              additionalProperties:
+                type: string
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    EmailChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [newEmail, currentPassword]
+      properties:
+        newEmail:
+          type: string
+          format: email
+          maxLength: 254
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+
+    EmailChangeEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [pendingEmail, expiresAt]
+          properties:
+            pendingEmail:
+              type: string
+              format: email
+            expiresAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PasswordChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 15
+          maxLength: 128
+          writeOnly: true
+          description: No mandatory number/symbol composition rules; the full value is blocklist-checked and hashed.
+        retainCurrentSession:
+          type: boolean
+          default: true
+
+    PasswordChangeEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [changedAt, revokedSessionCount]
+          properties:
+            changedAt:
+              type: string
+              format: date-time
+            revokedSessionCount:
+              type: integer
+              minimum: 0
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    Session:
+      type: object
+      required: [id, current, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        current:
+          type: boolean
+        deviceId:
+          type: [string, 'null']
+          format: uuid
+        deviceName:
+          type: [string, 'null']
+        userAgent:
+          type: [string, 'null']
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: [string, 'null']
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PageMeta:
+      allOf:
+        - $ref: '#/components/schemas/ResponseMeta'
+        - type: object
+          required: [page, size, totalElements, totalPages]
+          properties:
+            page:
+              type: integer
+            size:
+              type: integer
+            totalElements:
+              type: integer
+              format: int64
+            totalPages:
+              type: integer
+
+    SessionPageEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    Preferences:
+      type: object
+      required: [currencyCode, languageCode, regionCode, timeZone, themeMode, revision, updatedAt]
+      properties:
+        currencyCode:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          example: IDR
+        languageCode:
+          type: string
+          maxLength: 20
+          example: en
+        regionCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: ID
+        timeZone:
+          type: string
+          maxLength: 64
+          example: Asia/Jakarta
+        themeMode:
+          type: string
+          enum: [light, dark, system]
+        revision:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+
+    PreferencesUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        currencyCode:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        languageCode:
+          type: string
+          maxLength: 20
+        regionCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+        timeZone:
+          type: string
+          maxLength: 64
+        themeMode:
+          type: string
+          enum: [light, dark, system]
+
+    PreferencesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Preferences'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    NotificationPreferences:
+      type: object
+      required: [spendingReminderEnabled, weeklySummaryEnabled, monthlyReportEnabled, securityAlertsEnabled, productUpdatesEnabled, revision, updatedAt]
+      properties:
+        spendingReminderEnabled:
+          type: boolean
+        reminderTime:
+          type: [string, 'null']
+          format: time
+        weeklySummaryEnabled:
+          type: boolean
+        monthlyReportEnabled:
+          type: boolean
+        securityAlertsEnabled:
+          type: boolean
+          description: Critical password, email, and deletion events are still sent when false.
+        productUpdatesEnabled:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationPreferencesUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        spendingReminderEnabled:
+          type: boolean
+        reminderTime:
+          type: [string, 'null']
+          format: time
+        weeklySummaryEnabled:
+          type: boolean
+        monthlyReportEnabled:
+          type: boolean
+        securityAlertsEnabled:
+          type: boolean
+        productUpdatesEnabled:
+          type: boolean
+
+    NotificationPreferencesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/NotificationPreferences'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    DeviceRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [platform, pushToken, appVersion]
+      properties:
+        deviceId:
+          type: [string, 'null']
+          format: uuid
+        platform:
+          type: string
+          enum: [android, ios]
+        deviceName:
+          type: [string, 'null']
+          maxLength: 100
+        pushToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+        appVersion:
+          type: string
+          maxLength: 30
+
+    Device:
+      type: object
+      required: [id, platform, appVersion, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        deviceName:
+          type: [string, 'null']
+        appVersion:
+          type: string
+        lastSeenAt:
+          type: [string, 'null']
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    DeviceEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/Device'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    SyncStatusEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [status, serverRevision]
+          properties:
+            status:
+              type: string
+              enum: [synced, syncing, offline, failed, action_required]
+            lastSyncedAt:
+              type: [string, 'null']
+              format: date-time
+            serverRevision:
+              type: integer
+              format: int64
+              minimum: 1
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    PrivacyPreferences:
+      type: object
+      required: [personalizedInsights, anonymousAnalytics, policyVersion, consentedAt, revision, updatedAt]
+      properties:
+        personalizedInsights:
+          type: boolean
+        anonymousAnalytics:
+          type: boolean
+        policyVersion:
+          type: string
+          maxLength: 30
+        consentedAt:
+          type: string
+          format: date-time
+        sourceDeviceId:
+          type: [string, 'null']
+          format: uuid
+        sourcePlatform:
+          type: [string, 'null']
+        revision:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+
+    PrivacyPreferencesUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [policyVersion]
+      properties:
+        personalizedInsights:
+          type: boolean
+        anonymousAnalytics:
+          type: boolean
+        policyVersion:
+          type: string
+          minLength: 1
+          maxLength: 30
+        sourceDeviceId:
+          type: [string, 'null']
+          format: uuid
+        sourcePlatform:
+          type: [string, 'null']
+          maxLength: 20
+
+    PrivacyPreferencesEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/PrivacyPreferences'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    DataExport:
+      type: object
+      required: [jobId, status, format, requestedAt]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, ready, failed, expired]
+        format:
+          type: string
+          const: zip_json_csv
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+        downloadUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived signed URL returned only while the job is ready.
+        expiresAt:
+          type: [string, 'null']
+          format: date-time
+        failureReason:
+          type: [string, 'null']
+
+    DataExportEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/DataExport'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ClearTransactionsRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation, currentPassword]
+      properties:
+        confirmation:
+          type: string
+          const: CLEAR
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+
+    ClearTransactionsEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [deletedCount, recoverableUntil]
+          properties:
+            deletedCount:
+              type: integer
+              format: int64
+              minimum: 0
+            recoverableUntil:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    AccountDeletionRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation, currentPassword]
+      properties:
+        confirmation:
+          type: string
+          const: DELETE
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+
+    AccountDeletionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [requestId, status, requestedAt, scheduledFor]
+          properties:
+            requestId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [pending, cancelled, processing, completed]
+            requestedAt:
+              type: string
+              format: date-time
+            scheduledFor:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    FaqArticle:
+      type: object
+      required: [id, locale, category, title, body, displayOrder]
+      properties:
+        id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        displayOrder:
+          type: integer
+
+    FaqPageEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqArticle'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+
+    SupportTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [type, subject, message, appVersion, platform, osVersion, deviceModel, locale]
+      properties:
+        type:
+          type: string
+          enum: [support, bug]
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 160
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        appVersion:
+          type: string
+          maxLength: 30
+        platform:
+          type: string
+          maxLength: 20
+        osVersion:
+          type: string
+          maxLength: 60
+        deviceModel:
+          type: string
+          maxLength: 100
+        locale:
+          type: string
+          maxLength: 35
+        currentRoute:
+          type: [string, 'null']
+          maxLength: 255
+        diagnosticAttachmentId:
+          type: [string, 'null']
+          format: uuid
+          description: Opaque identifier created by an approved diagnostic-attachment upload flow.
+        diagnosticMetadata:
+          type: object
+          additionalProperties: true
+          description: Non-sensitive allowlisted diagnostics only.
+
+    SupportTicket:
+      type: object
+      required: [id, type, subject, message, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [support, bug]
+        subject:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [open, in_progress, waiting_for_user, resolved, closed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: [string, 'null']
+          format: date-time
+
+    SupportTicketEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/SupportTicket'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'

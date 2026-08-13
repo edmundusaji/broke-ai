@@ -12,11 +12,13 @@ import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.ExpenseService;
+import org.edmund.brokeai.service.UserSyncService;
 import org.edmund.brokeai.service.GeminiService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,6 +37,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final TransactionRepository transactionRepository;
     private final CurrentUserService currentUserService;
     private final UserRepository userRepository;
+    private final UserSyncService userSyncService;
 
     @Override
     public Transaction saveReceipt(MultipartFile file) {
@@ -47,7 +50,9 @@ public class ExpenseServiceImpl implements ExpenseService {
             }
 
             Transaction transaction = mapToEntity(aiResponse, "RECEIPT", currentUser);
-            return transactionRepository.save(transaction);
+            Transaction saved = transactionRepository.save(transaction);
+            userSyncService.markChanged(currentUser.getId());
+            return saved;
         });
     }
 
@@ -62,11 +67,14 @@ public class ExpenseServiceImpl implements ExpenseService {
             }
 
             Transaction transaction = mapToEntity(aiResponse, "NOTIFICATION", currentUser);
-            return transactionRepository.save(transaction);
+            Transaction saved = transactionRepository.save(transaction);
+            userSyncService.markChanged(currentUser.getId());
+            return saved;
         });
     }
 
     @Override
+    @Transactional
     public Transaction createManualExpense(ExpenseRequest request) {
         validateExpenseRequest(request);
 
@@ -75,10 +83,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         transaction.setInputType("MANUAL");
         transaction.setValidationStatus("CONFIRMED");
         transaction.setUser(currentUserService.getCurrentUser());
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        userSyncService.markChanged(saved.getUser().getId());
+        return saved;
     }
 
     @Override
+    @Transactional
     public Transaction updateExpense(Long id, ExpenseRequest request) {
         validateExpenseRequest(request);
 
@@ -86,15 +97,23 @@ public class ExpenseServiceImpl implements ExpenseService {
         Transaction transaction = transactionRepository.findByIdAndUser(id, currentUser)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
         applyExpenseDetails(transaction, request);
-        return transactionRepository.save(transaction);
+        transaction.setUpdatedAt(java.time.Instant.now());
+        Transaction saved = transactionRepository.save(transaction);
+        userSyncService.markChanged(currentUser.getId());
+        return saved;
     }
 
     @Override
+    @Transactional
     public void deleteExpense(Long id) {
         AppUser currentUser = currentUserService.getCurrentUser();
         Transaction transaction = transactionRepository.findByIdAndUser(id, currentUser)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
-        transactionRepository.delete(transaction);
+        java.time.Instant now = java.time.Instant.now();
+        transaction.setDeletedAt(now);
+        transaction.setUpdatedAt(now);
+        transactionRepository.save(transaction);
+        userSyncService.markChanged(currentUser.getId());
     }
 
     @Override

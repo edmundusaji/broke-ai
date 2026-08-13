@@ -9,6 +9,7 @@ import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.GeminiService;
+import org.edmund.brokeai.service.UserSyncService;
 import org.edmund.brokeai.service.serviceimpl.ExpenseServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,9 @@ class ExpenseServiceImplTests {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserSyncService userSyncService;
 
     private MultipartFile mockFile;
     private AiExpenseResponse mockAiResponse;
@@ -287,14 +291,16 @@ class ExpenseServiceImplTests {
     }
 
     @Test
-    void deleteExpense_TransactionBelongsToCurrentUser_DeletesIt() {
+    void deleteExpense_TransactionBelongsToCurrentUser_SoftDeletesIt() {
         Transaction transaction = new Transaction();
         when(transactionRepository.findByIdAndUser(99L, mockUser)).thenReturn(Optional.of(transaction));
 
         expenseServiceImpl.deleteExpense(99L);
 
         verify(transactionRepository).findByIdAndUser(99L, mockUser);
-        verify(transactionRepository).delete(transaction);
+        assertNotNull(transaction.getDeletedAt());
+        verify(transactionRepository).save(transaction);
+        verify(transactionRepository, never()).delete(transaction);
     }
 
     @Test

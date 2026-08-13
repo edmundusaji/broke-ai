@@ -7,6 +7,7 @@ import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.entity.AppUser;
+import org.edmund.brokeai.exception.ApiException;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.security.JwtService;
@@ -63,6 +64,13 @@ public class AuthServiceImpl implements AuthService {
             || !passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
+        if (!"active".equals(user.getStatus()) && !"pending_deletion".equals(user.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+        }
+        if (passwordEncoder.upgradeEncoding(user.getPassword())) {
+            user.setPassword(passwordEncoder.encode(request.password()));
+            userRepository.save(user);
+        }
 
         return buildLoginResponse(user);
     }
@@ -71,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
     public LoginResponse guestLogin() {
         AppUser guest = new AppUser();
         guest.setFullName("Guest User");
-        guest.setUsername("guest_" + UUID.randomUUID().toString().replace("-", ""));
+        guest.setUsername("guest_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24));
         guest.setEmail(null);
         guest.setPassword(null);
         guest.setIsGuest(true);
@@ -141,14 +149,24 @@ public class AuthServiceImpl implements AuthService {
             ? userRepository.existsByUsername(username)
             : userRepository.existsByUsernameAndIdNot(username, guestUser.getId());
         if (usernameExists) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is already in use");
+            throw new ApiException(
+                HttpStatus.CONFLICT,
+                "USERNAME_ALREADY_USED",
+                "That username is unavailable.",
+                "username"
+            );
         }
 
         boolean emailExists = guestUser == null
             ? userRepository.existsByEmail(email)
             : userRepository.existsByEmailAndIdNot(email, guestUser.getId());
         if (emailExists) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
+            throw new ApiException(
+                HttpStatus.CONFLICT,
+                "EMAIL_ALREADY_USED",
+                "That email address is already in use.",
+                "email"
+            );
         }
     }
 
