@@ -9,6 +9,7 @@ import org.edmund.brokeai.exception.ApiException;
 import org.edmund.brokeai.repository.FaqArticleRepository;
 import org.edmund.brokeai.repository.SupportTicketRepository;
 import org.edmund.brokeai.security.CurrentUserService;
+import org.edmund.brokeai.security.SensitiveValueCipher;
 import org.edmund.brokeai.service.SupportService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,7 @@ public class SupportServiceImpl implements SupportService {
     private final CurrentUserService currentUserService;
     private final FaqArticleRepository faqArticleRepository;
     private final SupportTicketRepository supportTicketRepository;
+    private final SensitiveValueCipher sensitiveValueCipher;
 
     @Override
     @Transactional(readOnly = true)
@@ -60,6 +62,7 @@ public class SupportServiceImpl implements SupportService {
         ticket.setLocale(request.locale());
         ticket.setCurrentRoute(request.currentRoute());
         ticket.setDiagnosticMetadata(sanitizeDiagnostics(request.diagnosticMetadata()));
+        setOptionalContact(ticket, request.contactEmail(), request.contactConsent());
         return map(supportTicketRepository.save(ticket));
     }
 
@@ -94,5 +97,19 @@ public class SupportServiceImpl implements SupportService {
             }
         });
         return result;
+    }
+
+    private void setOptionalContact(SupportTicket ticket, String contactEmail, Boolean contactConsent) {
+        if (contactEmail == null || contactEmail.isBlank()) {
+            if (Boolean.TRUE.equals(contactConsent)) {
+                throw ServiceSupport.validation("contactEmail", "A contact email is required when consent is given.");
+            }
+            return;
+        }
+        if (!Boolean.TRUE.equals(contactConsent)) {
+            throw ServiceSupport.validation("contactConsent", "Consent is required to store a contact email.");
+        }
+        ticket.setContactEmailEncrypted(sensitiveValueCipher.encrypt(contactEmail.trim().toLowerCase(java.util.Locale.ROOT)));
+        ticket.setContactConsentAt(Instant.now());
     }
 }

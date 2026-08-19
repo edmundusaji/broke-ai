@@ -68,7 +68,11 @@ class GuestRegistrationIntegrationTest {
             userRepository,
             passwordEncoder,
             mock(JwtService.class),
-            new CurrentUserService()
+            new CurrentUserService(),
+            transactionRepository,
+            mock(org.edmund.brokeai.service.serviceimpl.GuestDataPurgeService.class),
+            mock(org.edmund.brokeai.service.SecurityAuditService.class),
+            mock(org.edmund.brokeai.repository.UserSessionRepository.class)
         );
 
         Long guestId = guest.getId();

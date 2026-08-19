@@ -64,6 +64,12 @@ public class SupportTicket {
     @Column(name = "attachment_object_key")
     private String attachmentObjectKey;
 
+    @Column(name = "contact_email_encrypted", columnDefinition = "text")
+    private String contactEmailEncrypted;
+
+    @Column(name = "contact_consent_at")
+    private Instant contactConsentAt;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "diagnostic_metadata", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> diagnosticMetadata = Map.of();

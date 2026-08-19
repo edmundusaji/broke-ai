@@ -14,4 +14,6 @@ public interface DataExportJobRepository extends JpaRepository<DataExportJob, UU
     Optional<DataExportJob> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
 
     List<DataExportJob> findByStatusAndExpiresAtBefore(String status, Instant now);
+
+    List<DataExportJob> findByUserId(Long userId);
 }

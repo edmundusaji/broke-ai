@@ -8,6 +8,8 @@ import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.dto.CurrentUserResponse;
+import org.edmund.brokeai.dto.MergeGuestRequest;
+import org.edmund.brokeai.dto.MergeGuestResponse;
 import org.edmund.brokeai.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,5 +49,10 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<CurrentUserResponse> getCurrentUser() {
         return ResponseEntity.ok(authService.getCurrentUser());
+    }
+
+    @PostMapping("/merge-guest")
+    public ResponseEntity<MergeGuestResponse> mergeGuest(@Valid @RequestBody MergeGuestRequest request) {
+        return ResponseEntity.ok(authService.mergeGuest(request));
     }
 }

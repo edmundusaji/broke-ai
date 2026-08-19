@@ -6,17 +6,28 @@ import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
 import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
+import org.edmund.brokeai.dto.MergeGuestRequest;
+import org.edmund.brokeai.dto.MergeGuestResponse;
 import org.edmund.brokeai.entity.AppUser;
+import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.exception.ApiException;
 import org.edmund.brokeai.repository.UserRepository;
+import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.repository.UserSessionRepository;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.security.JwtService;
 import org.edmund.brokeai.service.AuthService;
+import org.edmund.brokeai.service.SecurityAuditService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -27,6 +38,10 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CurrentUserService currentUserService;
+    private final TransactionRepository transactionRepository;
+    private final GuestDataPurgeService guestDataPurgeService;
+    private final SecurityAuditService auditService;
+    private final UserSessionRepository userSessionRepository;
 
     @Override
     public void register(RegisterRequest request) {
@@ -123,6 +138,81 @@ public class AuthServiceImpl implements AuthService {
             roleFor(currentUser),
             remainingAiTrials(currentUser)
         );
+    }
+
+    @Override
+    @Transactional
+    public MergeGuestResponse mergeGuest(MergeGuestRequest request) {
+        AppUser authenticated = currentUserService.getCurrentUser();
+        AppUser guest = userRepository.findByIdForUpdate(authenticated.getId())
+            .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Guest account not found."));
+        if (!Boolean.TRUE.equals(guest.getIsGuest())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "GUEST_ONLY", "Only a guest session can be merged.");
+        }
+
+        AppUser destination = userRepository.findByUsernameForUpdate(request.username().trim())
+            .filter(user -> !Boolean.TRUE.equals(user.getIsGuest()))
+            .filter(user -> "active".equals(user.getStatus()))
+            .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid username or password."));
+        if (!passwordEncoder.matches(request.password(), destination.getPassword())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Invalid username or password.");
+        }
+
+        Set<TransactionKey> destinationKeys = new HashSet<>();
+        for (Transaction transaction : transactionRepository
+            .findByUserIdAndDeletedAtIsNullOrderByDateDesc(destination.getId())) {
+            destinationKeys.add(TransactionKey.of(transaction));
+        }
+
+        long moved = 0;
+        long duplicates = 0;
+        for (Transaction transaction : transactionRepository
+            .findByUserIdAndDeletedAtIsNullOrderByDateDesc(guest.getId())) {
+            if (!destinationKeys.add(TransactionKey.of(transaction))) {
+                duplicates++;
+                continue;
+            }
+            transaction.setUser(destination);
+            transaction.setUpdatedAt(java.time.Instant.now());
+            transactionRepository.save(transaction);
+            moved++;
+        }
+        transactionRepository.flush();
+
+        userSessionRepository.revokeAll(guest.getId(), java.time.Instant.now());
+        auditService.record(destination, "GUEST_MERGED", null, Map.of(
+            "guestUserId", guest.getId(),
+            "transactionsMoved", moved,
+            "duplicatesSkipped", duplicates
+        ));
+        guestDataPurgeService.hardDeleteGuest(guest);
+
+        return new MergeGuestResponse(
+            jwtService.generateToken(destination),
+            jwtService.getExpirationSeconds(),
+            destination.getUsername(),
+            false,
+            new MergeGuestResponse.MergeResult(moved, duplicates)
+        );
+    }
+
+    private record TransactionKey(
+        LocalDateTime date,
+        Double amount,
+        String category,
+        String paymentMethod,
+        String description
+    ) {
+        private static TransactionKey of(Transaction value) {
+            return new TransactionKey(
+                value.getDate(), value.getAmount(), normalize(value.getCategory()),
+                normalize(value.getPaymentMethod()), normalize(value.getDescription())
+            );
+        }
+
+        private static String normalize(String value) {
+            return value == null ? null : value.trim().toLowerCase(java.util.Locale.ROOT);
+        }
     }
 
     private void validateRegisterRequest(RegisterRequest request) {
