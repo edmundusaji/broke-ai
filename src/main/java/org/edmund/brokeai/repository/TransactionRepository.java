@@ -59,4 +59,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("UPDATE Transaction t SET t.deletedAt = :deletedAt, t.updatedAt = :deletedAt, " +
         "t.revision = t.revision + 1 WHERE t.user.id = :userId AND t.deletedAt IS NULL")
     int softDeleteAllByUserId(@Param("userId") Long userId, @Param("deletedAt") Instant deletedAt);
+
+    long countByUserIdAndDeletedAtIsNull(Long userId);
+
+    @Query("SELECT MIN(t.date) FROM Transaction t WHERE t.user.id = :userId AND t.deletedAt IS NULL")
+    Optional<LocalDateTime> findFirstTransactionAt(@Param("userId") Long userId);
+
+    @Query("SELECT MAX(t.date) FROM Transaction t WHERE t.user.id = :userId AND t.deletedAt IS NULL")
+    Optional<LocalDateTime> findLastTransactionAt(@Param("userId") Long userId);
 }

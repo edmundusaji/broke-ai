@@ -7,8 +7,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
+import java.time.Instant;
+import java.util.List;
 
 @Repository
 public interface UserRepository extends JpaRepository<AppUser, Long> {
@@ -41,4 +45,17 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
     @Query("UPDATE AppUser u SET u.aiTrialCount = u.aiTrialCount + 1 " +
         "WHERE u.id = :userId AND u.isGuest = true AND u.aiTrialCount < 2")
     int restoreGuestAiTrial(@Param("userId") Long userId);
+
+    List<AppUser> findByIsGuestTrueAndStatusAndGuestRetentionHoldFalseAndUpdatedAtBefore(
+        String status,
+        Instant cutoff
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM AppUser u WHERE u.id = :id")
+    Optional<AppUser> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM AppUser u WHERE LOWER(u.username) = LOWER(:username)")
+    Optional<AppUser> findByUsernameForUpdate(@Param("username") String username);
 }

@@ -23,8 +23,37 @@ tags:
   - name: Notifications
   - name: Privacy and data
   - name: Support
+  - name: Guest account
 
 paths:
+  /v1/auth/merge-guest:
+    post:
+      tags: [Guest account]
+      operationId: mergeGuestIntoExistingAccount
+      summary: Move guest transactions into an existing account
+      description: Reauthenticates the destination account, revokes the guest session, and leaves destination preferences unchanged. A duplicate has the same local transaction timestamp and amount plus case-insensitively equal trimmed category, payment method, and description.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeGuestRequest'
+      responses:
+        '200':
+          description: Guest data merged and destination token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeGuestResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /v1/me:
     get:
       tags: [Profile]
@@ -542,6 +571,7 @@ paths:
       tags: [Privacy and data]
       operationId: requestDataExport
       summary: Queue a ZIP export containing JSON and CSV
+      description: Available to registered and guest users; exports are always scoped to the authenticated owner and exclude tokens and security internals.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -680,6 +710,7 @@ paths:
       tags: [Support]
       operationId: listFaqs
       summary: List published FAQ articles
+      security: []
       parameters:
         - name: locale
           in: query
@@ -699,8 +730,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FaqPageEnvelope'
+
+  /v1/guest/transactions/clear:
+    post:
+      tags: [Guest account]
+      operationId: clearGuestTransactionHistory
+      summary: Soft-delete every active transaction owned by the current guest
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestClearRequest'
+      responses:
+        '200':
+          description: Guest transaction history cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearTransactionsEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/guest/data-summary:
+    get:
+      tags: [Guest account]
+      operationId: getGuestDataSummary
+      summary: Get guest transaction and AI allowance totals without loading history
+      responses:
+        '200':
+          description: Guest data summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestDataSummaryEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/guest-account:
+    delete:
+      tags: [Guest account]
+      operationId: deleteGuestAccount
+      summary: Permanently remove guest-owned data and revoke the guest identity
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestDeleteRequest'
+      responses:
+        '200':
+          description: Guest data removed; the client may now clear its local session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestDeletionEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /v1/support/tickets:
     post:
@@ -853,6 +957,12 @@ components:
               code: UNAUTHENTICATED
               message: Authentication is required.
               requestId: 550e8400-e29b-41d4-a716-446655440000
+    Forbidden:
+      description: The authenticated account type is not allowed to perform this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
     Conflict:
       description: A unique value or workflow state conflicts with existing data
       content:
@@ -906,6 +1016,51 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
 
   schemas:
+    MergeGuestRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 30
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          writeOnly: true
+
+    MergeGuestResponse:
+      type: object
+      additionalProperties: false
+      required: [token, expiresIn, username, isGuest, mergeResult]
+      properties:
+        token:
+          type: string
+          writeOnly: true
+        expiresIn:
+          type: integer
+          format: int64
+        username:
+          type: string
+        isGuest:
+          type: boolean
+          const: false
+        mergeResult:
+          type: object
+          additionalProperties: false
+          required: [transactionsMoved, duplicatesSkipped]
+          properties:
+            transactionsMoved:
+              type: integer
+              format: int64
+              minimum: 0
+            duplicatesSkipped:
+              type: integer
+              format: int64
+              minimum: 0
+
     ResponseMeta:
       type: object
       additionalProperties: false
@@ -923,6 +1078,8 @@ components:
       enum:
         - VALIDATION_ERROR
         - UNAUTHENTICATED
+        - INVALID_CREDENTIALS
+        - GUEST_ONLY
         - REAUTHENTICATION_REQUIRED
         - CURRENT_PASSWORD_INVALID
         - PASSWORD_COMPROMISED
@@ -1514,6 +1671,62 @@ components:
           maxLength: 1024
           writeOnly: true
 
+    GuestClearRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation:
+          type: string
+          const: CLEAR
+
+    GuestDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmation]
+      properties:
+        confirmation:
+          type: string
+          const: DELETE
+
+    GuestDeletionEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [deleted]
+          properties:
+            deleted:
+              type: boolean
+              const: true
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    GuestDataSummaryEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [transactionCount, remainingAiTrials]
+          properties:
+            transactionCount:
+              type: integer
+              format: int64
+              minimum: 0
+            firstTransactionAt:
+              type: [string, 'null']
+              format: date-time
+            lastTransactionAt:
+              type: [string, 'null']
+              format: date-time
+            remainingAiTrials:
+              type: integer
+              minimum: 0
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
     ClearTransactionsEnvelope:
       type: object
       required: [data, meta]
@@ -1640,6 +1853,14 @@ components:
           type: object
           additionalProperties: true
           description: Non-sensitive allowlisted diagnostics only.
+        contactEmail:
+          type: [string, 'null']
+          format: email
+          maxLength: 254
+          description: Optional reply address stored encrypted and never copied to the guest profile.
+        contactConsent:
+          type: [boolean, 'null']
+          description: Must be true when contactEmail is supplied.
 
     SupportTicket:
       type: object

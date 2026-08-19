@@ -205,6 +205,22 @@ public final class ProfileSettingsApi {
     public record ClearTransactions(long deletedCount, Instant recoverableUntil) {
     }
 
+    public record GuestConfirmationRequest(
+        @NotBlank String confirmation
+    ) {
+    }
+
+    public record GuestDeletion(boolean deleted) {
+    }
+
+    public record GuestDataSummary(
+        long transactionCount,
+        Instant firstTransactionAt,
+        Instant lastTransactionAt,
+        int remainingAiTrials
+    ) {
+    }
+
     public record AccountDeletionRequest(
         @NotBlank String confirmation,
         @NotBlank @Size(max = 1024) String currentPassword
@@ -230,7 +246,9 @@ public final class ProfileSettingsApi {
         @NotBlank @Size(max = 35) String locale,
         @Size(max = 255) String currentRoute,
         UUID diagnosticAttachmentId,
-        Map<String, Object> diagnosticMetadata
+        Map<String, Object> diagnosticMetadata,
+        @Email @Size(max = 254) String contactEmail,
+        Boolean contactConsent
     ) {
     }
 

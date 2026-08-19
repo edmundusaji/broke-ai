@@ -67,4 +67,7 @@ public class AppUser {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    @Column(name = "guest_retention_hold", nullable = false, columnDefinition = "boolean default false")
+    private Boolean guestRetentionHold = false;
 }

@@ -31,4 +31,8 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
         @Param("currentId") UUID currentId,
         @Param("now") Instant now
     );
+
+    boolean existsByUserIdAndExpiresAtAfter(Long userId, Instant now);
+
+    boolean existsByUserIdAndLastActiveAtAfter(Long userId, Instant cutoff);
 }

@@ -49,6 +49,7 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/me/data-exports/*/download").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/support/faqs").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/v1/me/avatar/uploads/*").permitAll()
                 .requestMatchers(
                     HttpMethod.POST,
@@ -56,6 +57,17 @@ public class SecurityConfig {
                     "/api/v1/expense/notification"
                 ).hasAnyRole("GUEST", "USER")
                 .requestMatchers("/api/v1/expense/**").hasAnyRole("GUEST", "USER")
+                .requestMatchers(
+                    "/api/v1/me/data-exports",
+                    "/api/v1/me/data-exports/**",
+                    "/api/v1/support/tickets",
+                    "/api/v1/support/tickets/**"
+                ).hasAnyRole("GUEST", "USER")
+                .requestMatchers(
+                    "/api/v1/guest/**",
+                    "/api/v1/guest-account",
+                    "/api/v1/auth/merge-guest"
+                ).hasRole("GUEST")
                 .requestMatchers(
                     "/api/v1/me/**",
                     "/api/v1/usernames/**",

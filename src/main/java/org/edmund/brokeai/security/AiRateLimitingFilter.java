@@ -28,7 +28,8 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
     private static final Set<String> AUTH_ENDPOINTS = Set.of(
         "/api/v1/auth/login",
         "/api/v1/auth/register",
-        "/api/v1/auth/guest-login"
+        "/api/v1/auth/guest-login",
+        "/api/v1/auth/merge-guest"
     );
     private static final Set<String> SENSITIVE_ENDPOINTS = Set.of(
         "/api/v1/me/password/change",
@@ -37,7 +38,9 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
         "/api/v1/me/data-exports",
         "/api/v1/me/transactions/clear",
         "/api/v1/me/deletion-request",
-        "/api/v1/support/tickets"
+        "/api/v1/support/tickets",
+        "/api/v1/guest/transactions/clear",
+        "/api/v1/guest-account"
     );
 
     private final RateLimitingService rateLimitingService;
@@ -77,7 +80,8 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
     }
 
     private boolean isSensitiveEndpoint(String requestPath, HttpServletRequest request) {
-        return "POST".equalsIgnoreCase(request.getMethod()) && SENSITIVE_ENDPOINTS.contains(requestPath);
+        return ("POST".equalsIgnoreCase(request.getMethod()) || "DELETE".equalsIgnoreCase(request.getMethod()))
+            && SENSITIVE_ENDPOINTS.contains(requestPath);
     }
 
     private String getRequestPath(HttpServletRequest request) {
