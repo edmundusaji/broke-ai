@@ -48,6 +48,16 @@ public class ApiExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(AiProcessingException.class)
+    public ResponseEntity<ErrorEnvelope> handleAiProcessing(AiProcessingException exception) {
+        log.warn("AI processing request failed ({})", exception.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(error(
+            "AI_PROCESSING_UNAVAILABLE",
+            "Expense classification is temporarily unavailable.",
+            null
+        ));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorEnvelope> handleValidation(MethodArgumentNotValidException exception) {
         var fieldError = exception.getBindingResult().getFieldError();

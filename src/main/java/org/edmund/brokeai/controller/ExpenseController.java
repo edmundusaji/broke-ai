@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.dto.ExpenseRequest;
+import org.edmund.brokeai.dto.NotificationIngestionRequest;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.service.ExpenseService;
 import org.edmund.brokeai.exception.GuestAiTrialLimitException;
@@ -16,6 +17,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import org.edmund.brokeai.exception.ApiException;
+import org.edmund.brokeai.security.NotificationCaptureAuthenticationFilter;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/v1/expense")
@@ -94,24 +103,34 @@ public class ExpenseController {
         }
     }
 
-    // DTO only to catch notification
-    public record NotificationRequest(String text) {}
-
     @PostMapping(value = "/notification", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Process Notification",
-            description = "Accepts pasted payment notifications from services such as BCA, OVO, and GoPay.")
-    public ResponseEntity<Transaction> processNotification(@RequestBody NotificationRequest request) {
-        if (request.text() == null || request.text().isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
+            description = "Accepts legacy pasted notifications or enriched automatic Android captures.")
+    public ResponseEntity<?> processNotification(
+        @Valid @RequestBody NotificationIngestionRequest request,
+        HttpServletRequest servletRequest,
+        Authentication authentication
+    ) {
         try {
-            Transaction savedData = expenseService.saveNotification(request.text());
-            return ResponseEntity.ok(savedData);
+            boolean captureCredential = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_NOTIFICATION_CAPTURE".equals(authority.getAuthority()));
+            if (captureCredential) {
+                if (!request.isAutomatic()) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "CAPTURE_PAYLOAD_INVALID",
+                        "A device capture credential can only submit AUTOMATIC captures.", "captureMode");
+                }
+                UUID deviceId = (UUID) servletRequest.getAttribute(
+                    NotificationCaptureAuthenticationFilter.DEVICE_ID_ATTRIBUTE
+                );
+                return ResponseEntity.ok(expenseService.saveAutomaticNotification(request, deviceId));
+            }
+            if (!request.isLegacyManual()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "CAPTURE_CREDENTIAL_REQUIRED",
+                    "Automatic captures require a device capture credential.");
+            }
+            return ResponseEntity.ok(expenseService.saveNotification(request.text()));
         } catch (GuestAiTrialLimitException e) {
             throw e;
-        } catch (Exception e) {
-            log.error("Notification processing request failed ({})", e.getClass().getSimpleName());
-            return ResponseEntity.internalServerError().build();
         }
     }
 

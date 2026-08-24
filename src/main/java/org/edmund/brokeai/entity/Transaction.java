@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "receipt")
@@ -30,6 +31,27 @@ public class Transaction {
 
     @Column(name = "input_type")
     private String inputType; // RECEIPT, NOTIFICATION
+
+    @Column(name = "capture_id")
+    private UUID captureId;
+
+    @Column(name = "capture_mode", length = 20)
+    private String captureMode;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "capture_device_id")
+    private UserDevice captureDevice;
+
+    @Column(name = "source_package", length = 255)
+    private String sourcePackage;
+
+    @Column(name = "source_notification_posted_at")
+    private Instant sourceNotificationPostedAt;
+
+    @JsonIgnore
+    @Column(name = "source_payload_hash")
+    private String sourcePayloadHash;
 
     @Column(name = "validation_status")
     private String validationStatus; // PENDING, CONFIRMED

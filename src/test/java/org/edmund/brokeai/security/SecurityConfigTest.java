@@ -21,13 +21,15 @@ class SecurityConfigTest {
     private SecurityConfig securityConfig;
     private JwtAuthenticationFilter jwtFilter;
     private AiRateLimitingFilter aiFilter;
+    private NotificationCaptureAuthenticationFilter notificationCaptureFilter;
 
     @BeforeEach
     void setUp() {
         jwtFilter = mock(JwtAuthenticationFilter.class);
         aiFilter = mock(AiRateLimitingFilter.class);
+        notificationCaptureFilter = mock(NotificationCaptureAuthenticationFilter.class);
 
-        securityConfig = new SecurityConfig(jwtFilter, aiFilter);
+        securityConfig = new SecurityConfig(jwtFilter, notificationCaptureFilter, aiFilter);
     }
 
     @Test

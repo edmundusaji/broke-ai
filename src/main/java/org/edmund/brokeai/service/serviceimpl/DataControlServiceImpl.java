@@ -13,6 +13,7 @@ import org.edmund.brokeai.repository.TransactionClearRequestRepository;
 import org.edmund.brokeai.repository.TransactionRepository;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.repository.UserSessionRepository;
+import org.edmund.brokeai.repository.UserDeviceRepository;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.security.SignedDownloadService;
 import org.edmund.brokeai.service.DataControlService;
@@ -40,6 +41,7 @@ public class DataControlServiceImpl implements DataControlService {
     private final AccountDeletionRequestRepository accountDeletionRequestRepository;
     private final TransactionRepository transactionRepository;
     private final UserSessionRepository userSessionRepository;
+    private final UserDeviceRepository userDeviceRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityAuditService auditService;
@@ -158,6 +160,7 @@ public class DataControlServiceImpl implements DataControlService {
         user.setUpdatedAt(now);
         userRepository.save(user);
         userSessionRepository.revokeAll(user.getId(), now);
+        userDeviceRepository.revokeNotificationCaptureForUser(user.getId(), now);
         auditService.record(user, "ACCOUNT_DELETION_REQUESTED", null,
             Map.of("requestId", saved.getId().toString(), "scheduledFor", saved.getScheduledFor().toString()));
         return map(saved);

@@ -80,6 +80,8 @@ class ExpenseControllerIntegrationTest {
             return session;
         });
         String fakeJsonResponse = "{\n" +
+                "  \"isExpense\": true,\n" +
+                "  \"confidence\": 0.95,\n" +
                 "  \"date\": \"2026-03-28\",\n" +
                 "  \"time\": \"09:15:00\",\n" +
                 "  \"amount\": 75000.0,\n" +
@@ -401,7 +403,10 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void processReceipt_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"paymentMethod\": \"GoPay\"}");
+        GeminiResponse badGeminiResponse = createMockGeminiResponse("""
+            {"isExpense":true,"confidence":0.95,"date":"2026-03-28","time":"09:15:00",
+             "amount":75000,"category":"Transportation","paymentMethod":"GoPay","description":"Grab Ride"}
+            """);
 
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {
@@ -423,7 +428,10 @@ class ExpenseControllerIntegrationTest {
 
     @Test
     void processNotification_ServiceThrowsException_ReturnsInternalServerError() throws Exception {
-        GeminiResponse badGeminiResponse = createMockGeminiResponse("{\"paymentMethod\": \"GoPay\"}");
+        GeminiResponse badGeminiResponse = createMockGeminiResponse("""
+            {"isExpense":true,"confidence":0.95,"date":"2026-03-28","time":"09:15:00",
+             "amount":75000,"category":"Transportation","paymentMethod":"GoPay","description":"Grab Ride"}
+            """);
 
         try (MockedConstruction<RestTemplate> mockedRestTemplate = mockConstruction(RestTemplate.class,
                 (mock, context) -> {

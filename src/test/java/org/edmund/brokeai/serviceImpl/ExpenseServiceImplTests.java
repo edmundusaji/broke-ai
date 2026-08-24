@@ -2,14 +2,20 @@ package org.edmund.brokeai.serviceImpl;
 
 import org.edmund.brokeai.dto.AiExpenseResponse;
 import org.edmund.brokeai.dto.ExpenseRequest;
+import org.edmund.brokeai.dto.NotificationIngestionRequest;
+import org.edmund.brokeai.dto.NotificationIngestionResponse;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
+import org.edmund.brokeai.entity.UserDevice;
+import org.edmund.brokeai.repository.NotificationIdempotencyRepository;
 import org.edmund.brokeai.repository.TransactionRepository;
+import org.edmund.brokeai.repository.UserDeviceRepository;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.exception.GuestAiTrialLimitException;
 import org.edmund.brokeai.security.CurrentUserService;
 import org.edmund.brokeai.service.GeminiService;
 import org.edmund.brokeai.service.UserSyncService;
+import org.edmund.brokeai.service.RateLimitingService;
 import org.edmund.brokeai.service.serviceimpl.ExpenseServiceImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +28,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,8 +37,10 @@ import static org.mockito.Mockito.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class ExpenseServiceImplTests {
@@ -54,6 +63,15 @@ class ExpenseServiceImplTests {
     @Mock
     private UserSyncService userSyncService;
 
+    @Mock
+    private UserDeviceRepository userDeviceRepository;
+
+    @Mock
+    private NotificationIdempotencyRepository notificationIdempotencyRepository;
+
+    @Mock
+    private RateLimitingService rateLimitingService;
+
     private MultipartFile mockFile;
     private AiExpenseResponse mockAiResponse;
     private Transaction mockTransaction;
@@ -65,6 +83,8 @@ class ExpenseServiceImplTests {
                 "image/jpeg", "dummy image content".getBytes());
 
         mockAiResponse = new AiExpenseResponse();
+        mockAiResponse.setIsExpense(true);
+        mockAiResponse.setConfidence(0.95);
         mockAiResponse.setPaymentMethod("GoPay");
         mockAiResponse.setDescription("Coffee Purchase");
         mockAiResponse.setAmount(55000.0);
@@ -85,6 +105,8 @@ class ExpenseServiceImplTests {
         mockUser.setEmail("rani@example.com");
 
         lenient().when(currentUserService.getCurrentUser()).thenReturn(mockUser);
+        ReflectionTestUtils.setField(expenseServiceImpl, "notificationCaptureEnabled", true);
+        ReflectionTestUtils.setField(expenseServiceImpl, "notificationConfidenceThreshold", 0.80d);
     }
 
     @AfterEach
@@ -397,10 +419,127 @@ class ExpenseServiceImplTests {
         verify(transactionRepository).save(any(Transaction.class));
     }
 
+    @Test
+    void saveAutomaticNotification_ValidExpense_SavesMetadataAndIdempotencyWithoutRawText() {
+        UUID deviceId = UUID.randomUUID();
+        UUID captureId = UUID.randomUUID();
+        UserDevice device = activeCaptureDevice(deviceId);
+        NotificationIngestionRequest request = automaticRequest(captureId);
+
+        when(userDeviceRepository.findByIdAndUserId(deviceId, mockUser.getId())).thenReturn(Optional.of(device));
+        when(transactionRepository.findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId))
+            .thenReturn(Optional.empty());
+        when(notificationIdempotencyRepository.reserve(eq(mockUser.getId()), eq(captureId), anyString(), any()))
+            .thenReturn(true);
+        when(rateLimitingService.tryConsumeAutomatic(mockUser.getId())).thenReturn(true);
+        when(geminiService.processNotification(request.text())).thenReturn(mockAiResponse);
+        when(transactionRepository.saveAndFlush(any(Transaction.class))).thenAnswer(invocation -> {
+            Transaction value = invocation.getArgument(0);
+            value.setId(77L);
+            return value;
+        });
+
+        NotificationIngestionResponse response = expenseServiceImpl.saveAutomaticNotification(request, deviceId);
+
+        assertEquals(NotificationIngestionResponse.Status.SAVED, response.status());
+        assertEquals(captureId, response.captureId());
+        assertEquals("AUTOMATIC", response.transaction().getCaptureMode());
+        assertEquals("com.gojek.app", response.transaction().getSourcePackage());
+        assertEquals(device, response.transaction().getCaptureDevice());
+        assertNotNull(response.transaction().getSourcePayloadHash());
+        assertFalse(response.transaction().getSourcePayloadHash().contains("Pembayaran"));
+        verify(transactionRepository).findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId);
+        verify(transactionRepository).saveAndFlush(any(Transaction.class));
+        verify(notificationIdempotencyRepository).complete(
+            eq(mockUser.getId()), eq(captureId), eq(200), argThat(body -> !body.contains(request.text()))
+        );
+    }
+
+    @Test
+    void saveAutomaticNotification_DuplicateCapture_SkipsAiAndReturnsExistingTransaction() {
+        UUID deviceId = UUID.randomUUID();
+        UUID captureId = UUID.randomUUID();
+        UserDevice device = activeCaptureDevice(deviceId);
+        Transaction existing = new Transaction();
+        existing.setId(88L);
+        when(userDeviceRepository.findByIdAndUserId(deviceId, mockUser.getId())).thenReturn(Optional.of(device));
+        when(transactionRepository.findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId))
+            .thenReturn(Optional.of(existing));
+
+        NotificationIngestionResponse response = expenseServiceImpl.saveAutomaticNotification(
+            automaticRequest(captureId), deviceId
+        );
+
+        assertEquals(NotificationIngestionResponse.Status.DUPLICATE, response.status());
+        assertSame(existing, response.transaction());
+        verify(transactionRepository).findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId);
+        verifyNoInteractions(geminiService, notificationIdempotencyRepository, rateLimitingService);
+    }
+
+    @Test
+    void saveAutomaticNotification_NonExpense_IsIgnoredWithoutTransaction() {
+        UUID deviceId = UUID.randomUUID();
+        UUID captureId = UUID.randomUUID();
+        UserDevice device = activeCaptureDevice(deviceId);
+        mockAiResponse.setIsExpense(false);
+        when(userDeviceRepository.findByIdAndUserId(deviceId, mockUser.getId())).thenReturn(Optional.of(device));
+        when(transactionRepository.findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId))
+            .thenReturn(Optional.empty());
+        when(notificationIdempotencyRepository.reserve(eq(mockUser.getId()), eq(captureId), anyString(), any()))
+            .thenReturn(true);
+        when(rateLimitingService.tryConsumeAutomatic(mockUser.getId())).thenReturn(true);
+        when(geminiService.processNotification(anyString())).thenReturn(mockAiResponse);
+
+        NotificationIngestionResponse response = expenseServiceImpl.saveAutomaticNotification(
+            automaticRequest(captureId), deviceId
+        );
+
+        assertEquals(NotificationIngestionResponse.Status.IGNORED, response.status());
+        assertNull(response.transaction());
+        verify(transactionRepository).findByUserIdAndCaptureIdAndDeletedAtIsNull(mockUser.getId(), captureId);
+        verify(transactionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void saveAutomaticNotification_UnsupportedPackage_RejectsBeforeAiOrIdempotency() {
+        UUID captureId = UUID.randomUUID();
+        NotificationIngestionRequest request = new NotificationIngestionRequest(
+            "Pembayaran berhasil", captureId, "AUTOMATIC", "com.example.unknown", Instant.now()
+        );
+
+        org.edmund.brokeai.exception.ApiException exception = assertThrows(
+            org.edmund.brokeai.exception.ApiException.class,
+            () -> expenseServiceImpl.saveAutomaticNotification(request, UUID.randomUUID())
+        );
+
+        assertEquals("CAPTURE_SOURCE_UNSUPPORTED", exception.getCode());
+        verifyNoInteractions(geminiService, notificationIdempotencyRepository, rateLimitingService);
+    }
+
     private ExpenseRequest validExpenseRequest() {
         return new ExpenseRequest(
             LocalDate.of(2026, 4, 1), 75000.0, " Food ", " GoPay ", " Coffee Purchase "
         );
+    }
+
+    private NotificationIngestionRequest automaticRequest(UUID captureId) {
+        return new NotificationIngestionRequest(
+            "Pembayaran Rp75.000 ke GRAB berhasil",
+            captureId,
+            "AUTOMATIC",
+            "com.gojek.app",
+            Instant.now()
+        );
+    }
+
+    private UserDevice activeCaptureDevice(UUID deviceId) {
+        UserDevice device = new UserDevice();
+        device.setId(deviceId);
+        device.setUser(mockUser);
+        device.setPlatform("android");
+        device.setNotificationCaptureTokenHash("hashed");
+        device.setNotificationCaptureEnabledAt(Instant.now());
+        return device;
     }
 
     private void assertInvalidManualExpense(ExpenseRequest request) {

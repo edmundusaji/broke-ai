@@ -38,6 +38,8 @@ class GeminiServiceImplTests {
     void setUp() {
         validJsonResponseString = "```json\n" +
                 "{\n" +
+                "  \"isExpense\": true,\n" +
+                "  \"confidence\": 0.95,\n" +
                 "  \"date\": \"2026-03-28\",\n" +
                 "  \"time\": \"15:30:00\",\n" +
                 "  \"amount\": 55000.0,\n" +
@@ -133,10 +135,10 @@ class GeminiServiceImplTests {
         GeminiResponse invalidJsonResponse = createMockGeminiResponse("{JSON_CACAT}");
         when(geminiOutboundService.sendToGemini(any(GeminiRequest.class))).thenReturn(invalidJsonResponse);
 
-        AiExpenseResponse result = geminiService.processNotification("Notification Text");
-
-        assertNotNull(result);
-        assertNull(result.getPaymentMethod());
+        assertThrows(
+            org.edmund.brokeai.exception.AiProcessingException.class,
+            () -> geminiService.processNotification("Notification Text")
+        );
     }
 
     @Test

@@ -11,6 +11,7 @@ import org.edmund.brokeai.service.RateLimitingService;
 import org.edmund.brokeai.security.JwtService;
 import org.edmund.brokeai.repository.UserRepository;
 import org.edmund.brokeai.repository.UserSessionRepository;
+import org.edmund.brokeai.repository.UserDeviceRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private UserSessionRepository userSessionRepository;
+
+    @MockitoBean
+    private UserDeviceRepository userDeviceRepository;
 
     @Test
     void register_Success_ReturnsOk() throws Exception {
