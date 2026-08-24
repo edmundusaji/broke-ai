@@ -68,6 +68,9 @@ class ExpenseControllerIntegrationTest {
     @MockitoBean
     private UserSyncService userSyncService;
 
+    @MockitoBean
+    private RestTemplate geminiRestTemplate;
+
     private GeminiResponse mockGeminiResponse;
     private AppUser mockUser;
 
@@ -91,6 +94,8 @@ class ExpenseControllerIntegrationTest {
                 "}";
 
         mockGeminiResponse = createMockGeminiResponse(fakeJsonResponse);
+        when(geminiRestTemplate.postForObject(anyString(), any(), eq(GeminiResponse.class)))
+                .thenReturn(mockGeminiResponse);
 
         mockUser = new AppUser();
         mockUser.setId(1L);
