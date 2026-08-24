@@ -13,12 +13,19 @@ import java.util.concurrent.ConcurrentMap;
 public class RateLimitingServiceImpl implements RateLimitingService {
 
     private final ConcurrentMap<Long, Bucket> buckets = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, Bucket> automaticCaptureBuckets = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> authBuckets = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> sensitiveBuckets = new ConcurrentHashMap<>();
 
     @Override
     public boolean tryConsume(Long userId) {
         return buckets.computeIfAbsent(userId, ignored -> newAiBucket()).tryConsume(1);
+    }
+
+    @Override
+    public boolean tryConsumeAutomatic(Long userId) {
+        return automaticCaptureBuckets.computeIfAbsent(userId, ignored -> newAutomaticCaptureBucket())
+            .tryConsume(1);
     }
 
     @Override
@@ -49,5 +56,13 @@ public class RateLimitingServiceImpl implements RateLimitingService {
         return Bucket.builder()
             .addLimit(limit)
             .build();
+    }
+
+    private Bucket newAutomaticCaptureBucket() {
+        Bandwidth limit = Bandwidth.builder()
+            .capacity(30)
+            .refillGreedy(30, Duration.ofMinutes(1))
+            .build();
+        return Bucket.builder().addLimit(limit).build();
     }
 }

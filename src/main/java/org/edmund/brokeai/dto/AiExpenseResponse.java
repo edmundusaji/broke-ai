@@ -4,6 +4,8 @@ import lombok.Data;
 
 @Data
 public class AiExpenseResponse {
+    private Boolean isExpense;
+    private Double confidence;
     private String date;
     private String time;
     private Double amount;

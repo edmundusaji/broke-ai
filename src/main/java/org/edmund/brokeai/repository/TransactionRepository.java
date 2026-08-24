@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.time.Instant;
 
 @Repository
@@ -61,6 +62,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     int softDeleteAllByUserId(@Param("userId") Long userId, @Param("deletedAt") Instant deletedAt);
 
     long countByUserIdAndDeletedAtIsNull(Long userId);
+
+    Optional<Transaction> findByUserIdAndCaptureIdAndDeletedAtIsNull(Long userId, UUID captureId);
 
     @Query("SELECT MIN(t.date) FROM Transaction t WHERE t.user.id = :userId AND t.deletedAt IS NULL")
     Optional<LocalDateTime> findFirstTransactionAt(@Param("userId") Long userId);

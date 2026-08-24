@@ -24,6 +24,7 @@ import java.util.UUID;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final NotificationCaptureAuthenticationFilter notificationCaptureAuthenticationFilter;
     private final AiRateLimitingFilter aiRateLimitingFilter;
 
     @Bean
@@ -62,7 +63,7 @@ public class SecurityConfig {
                     "/api/v1/me/data-exports/**",
                     "/api/v1/support/tickets",
                     "/api/v1/support/tickets/**"
-                ).hasAnyRole("GUEST", "USER")
+                ).hasAnyRole("GUEST", "USER", "NOTIFICATION_CAPTURE")
                 .requestMatchers(
                     "/api/v1/guest/**",
                     "/api/v1/guest-account",
@@ -76,7 +77,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(aiRateLimitingFilter, JwtAuthenticationFilter.class)
+            .addFilterAfter(notificationCaptureAuthenticationFilter, JwtAuthenticationFilter.class)
+            .addFilterAfter(aiRateLimitingFilter, NotificationCaptureAuthenticationFilter.class)
             .build();
     }
 

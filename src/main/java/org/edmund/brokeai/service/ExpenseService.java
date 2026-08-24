@@ -2,6 +2,8 @@ package org.edmund.brokeai.service;
 
 import org.edmund.brokeai.dto.ExpenseSummaryResponse;
 import org.edmund.brokeai.dto.ExpenseRequest;
+import org.edmund.brokeai.dto.NotificationIngestionRequest;
+import org.edmund.brokeai.dto.NotificationIngestionResponse;
 import org.edmund.brokeai.entity.Transaction;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,6 +15,10 @@ import java.util.List;
 public interface ExpenseService {
     Transaction saveReceipt(MultipartFile file);
     Transaction saveNotification(String notification);
+    NotificationIngestionResponse saveAutomaticNotification(
+        NotificationIngestionRequest request,
+        java.util.UUID deviceId
+    );
     Transaction createManualExpense(ExpenseRequest request);
     Transaction updateExpense(Long id, ExpenseRequest request);
     void deleteExpense(Long id);

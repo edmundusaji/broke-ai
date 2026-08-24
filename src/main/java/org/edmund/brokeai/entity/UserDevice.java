@@ -46,6 +46,18 @@ public class UserDevice {
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
 
+    @Column(name = "notification_capture_token_hash")
+    private String notificationCaptureTokenHash;
+
+    @Column(name = "notification_capture_enabled_at")
+    private Instant notificationCaptureEnabledAt;
+
+    @Column(name = "notification_capture_revoked_at")
+    private Instant notificationCaptureRevokedAt;
+
+    @Column(name = "notification_capture_last_used_at")
+    private Instant notificationCaptureLastUsedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

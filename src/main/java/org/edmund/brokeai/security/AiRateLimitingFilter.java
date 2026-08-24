@@ -65,7 +65,9 @@ public class AiRateLimitingFilter extends OncePerRequestFilter {
         } else if (AI_ENDPOINTS.contains(requestPath)) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.getPrincipal() instanceof AppUser user) {
-                if (!rateLimitingService.tryConsume(user.getId())) {
+                boolean automaticCapture = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> "ROLE_NOTIFICATION_CAPTURE".equals(authority.getAuthority()));
+                if (!automaticCapture && !rateLimitingService.tryConsume(user.getId())) {
                     writeRateLimitError(response, "AI request limit exceeded.");
                     return;
                 }
