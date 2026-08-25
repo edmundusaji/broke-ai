@@ -1,5 +1,7 @@
 package org.edmund.brokeai.serviceImpl;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.edmund.brokeai.dto.GeminiRequest;
 import org.edmund.brokeai.dto.GeminiResponse;
 import org.edmund.brokeai.exception.AiProcessingException;
@@ -111,6 +113,30 @@ class GeminiOutboundServiceImplTest {
 
         assertEquals("All configured Gemini models failed", exception.getMessage());
         assertTrue(exception.getCause() instanceof HttpServerErrorException.ServiceUnavailable);
+    }
+
+    @Test
+    void geminiResponse_ProviderMetadata_DoesNotBreakStrictDeserialization() throws Exception {
+        ObjectMapper strictMapper = new ObjectMapper()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
+        GeminiResponse parsed = strictMapper.readValue("""
+                {
+                  "candidates": [{
+                    "content": {
+                      "parts": [{"text": "{\\"amount\\": 25000}", "thoughtSignature": "signature"}],
+                      "role": "model"
+                    },
+                    "finishReason": "STOP",
+                    "index": 0
+                  }],
+                  "usageMetadata": {"promptTokenCount": 42},
+                  "modelVersion": "gemini-3.6-flash",
+                  "responseId": "response-id"
+                }
+                """, GeminiResponse.class);
+
+        assertEquals("{\"amount\": 25000}", parsed.candidates().getFirst().content().parts().getFirst().text());
     }
 
     private HttpClientErrorException http400() {
