@@ -178,10 +178,10 @@ public class SettingsServiceImpl implements SettingsService {
         if (!statuses.isEmpty()) return statuses.getFirst();
         Instant now = Instant.now();
         jdbcTemplate.update(
-            "INSERT INTO user_sync_state (user_id, status, last_synced_at, server_revision) VALUES (?, 'synced', ?, 1)",
+            "INSERT INTO user_sync_state (user_id, status, last_synced_at, server_revision) VALUES (?, 'synced', ?, 0)",
             userId, Timestamp.from(now)
         );
-        return new ProfileSettingsApi.SyncStatus("synced", now, 1);
+        return new ProfileSettingsApi.SyncStatus("synced", now, 0);
     }
 
     @Override

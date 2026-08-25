@@ -76,7 +76,7 @@ class ExpenseControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        when(userSessionRepository.findByRefreshTokenHash(anyString())).thenReturn(Optional.empty());
+        when(userSessionRepository.findByAccessTokenHash(anyString())).thenReturn(Optional.empty());
         when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> {
             UserSession session = invocation.getArgument(0);
             session.setId(java.util.UUID.randomUUID());

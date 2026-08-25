@@ -1,6 +1,5 @@
 package org.edmund.brokeai.service.serviceimpl;
 
-import lombok.RequiredArgsConstructor;
 import org.edmund.brokeai.dto.CurrentUserResponse;
 import org.edmund.brokeai.dto.LoginRequest;
 import org.edmund.brokeai.dto.LoginResponse;
@@ -8,6 +7,7 @@ import org.edmund.brokeai.dto.RegisterRequest;
 import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.dto.MergeGuestRequest;
 import org.edmund.brokeai.dto.MergeGuestResponse;
+import org.edmund.brokeai.dto.GuestBootstrapRequest;
 import org.edmund.brokeai.entity.AppUser;
 import org.edmund.brokeai.entity.Transaction;
 import org.edmund.brokeai.exception.ApiException;
@@ -23,15 +23,18 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Service
-@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -42,6 +45,53 @@ public class AuthServiceImpl implements AuthService {
     private final GuestDataPurgeService guestDataPurgeService;
     private final SecurityAuditService auditService;
     private final UserSessionRepository userSessionRepository;
+    private final JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    public AuthServiceImpl(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        JwtService jwtService,
+        CurrentUserService currentUserService,
+        TransactionRepository transactionRepository,
+        GuestDataPurgeService guestDataPurgeService,
+        SecurityAuditService auditService,
+        UserSessionRepository userSessionRepository,
+        JdbcTemplate jdbcTemplate
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.currentUserService = currentUserService;
+        this.transactionRepository = transactionRepository;
+        this.guestDataPurgeService = guestDataPurgeService;
+        this.auditService = auditService;
+        this.userSessionRepository = userSessionRepository;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public AuthServiceImpl(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        JwtService jwtService,
+        CurrentUserService currentUserService,
+        TransactionRepository transactionRepository,
+        GuestDataPurgeService guestDataPurgeService,
+        SecurityAuditService auditService,
+        UserSessionRepository userSessionRepository
+    ) {
+        this(
+            userRepository,
+            passwordEncoder,
+            jwtService,
+            currentUserService,
+            transactionRepository,
+            guestDataPurgeService,
+            auditService,
+            userSessionRepository,
+            null
+        );
+    }
 
     @Override
     public void register(RegisterRequest request) {
@@ -105,6 +155,62 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
+    public LoginResponse guestLogin(GuestBootstrapRequest request) {
+        if (jdbcTemplate == null) {
+            throw new IllegalStateException("Guest bootstrap persistence is unavailable");
+        }
+        String clientGuestIdHash = ServiceSupport.sha256(request.clientGuestId().toString());
+        String credentialHash = ServiceSupport.sha256(request.installationCredential());
+
+        String username = "guest_" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+        var insertedIds = jdbcTemplate.query(
+            """
+            INSERT INTO users (
+                full_name,
+                username,
+                is_guest,
+                ai_trial_count,
+                client_guest_id_hash,
+                guest_installation_credential_hash
+            ) VALUES ('Guest User', ?, TRUE, 2, ?, ?)
+            ON CONFLICT (client_guest_id_hash) WHERE client_guest_id_hash IS NOT NULL DO NOTHING
+            RETURNING id
+            """,
+            (resultSet, rowNumber) -> resultSet.getLong(1),
+            username,
+            clientGuestIdHash,
+            credentialHash
+        );
+
+        AppUser guest = (insertedIds.isEmpty()
+            ? userRepository.findByClientGuestIdHash(clientGuestIdHash)
+            : userRepository.findById(insertedIds.getFirst()))
+            .orElseThrow(() -> new ApiException(
+                HttpStatus.CONFLICT,
+                "GUEST_BOOTSTRAP_FAILED",
+                "The guest account could not be resumed."
+            ));
+
+        if (!constantTimeEquals(credentialHash, guest.getGuestInstallationCredentialHash())) {
+            throw new ApiException(
+                HttpStatus.UNAUTHORIZED,
+                "GUEST_BOOTSTRAP_CREDENTIAL_INVALID",
+                "This installation is not authorized to resume that guest account."
+            );
+        }
+        if (!Boolean.TRUE.equals(guest.getIsGuest()) || !"active".equals(guest.getStatus())) {
+            throw new ApiException(
+                HttpStatus.CONFLICT,
+                "GUEST_REAUTHENTICATION_REQUIRED",
+                "This guest was upgraded or is no longer active. Sign in to continue syncing."
+            );
+        }
+
+        return buildLoginResponse(guest);
+    }
+
+    @Override
     public LoginResponse upgradeGuest(UpgradeGuestRequest request) {
         validateUpgradeRequest(request);
 
@@ -132,6 +238,7 @@ public class AuthServiceImpl implements AuthService {
     public CurrentUserResponse getCurrentUser() {
         AppUser currentUser = currentUserService.getCurrentUser();
         return new CurrentUserResponse(
+            currentUser.getAccountId(),
             currentUser.getUsername(),
             currentUser.getFullName(),
             currentUser.getEmail(),
@@ -188,6 +295,7 @@ public class AuthServiceImpl implements AuthService {
         guestDataPurgeService.hardDeleteGuest(guest);
 
         return new MergeGuestResponse(
+            destination.getAccountId(),
             jwtService.generateToken(destination),
             jwtService.getExpirationSeconds(),
             destination.getUsername(),
@@ -264,10 +372,12 @@ public class AuthServiceImpl implements AuthService {
         String token = jwtService.generateToken(user);
         LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo(user.getFullName(), user.getEmail());
         return new LoginResponse(
+            user.getAccountId(),
             token,
             jwtService.getExpirationSeconds(),
             user.getUsername(),
             Boolean.TRUE.equals(user.getIsGuest()),
+            false,
             remainingAiTrials(user),
             userInfo
         );
@@ -286,5 +396,13 @@ public class AuthServiceImpl implements AuthService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private boolean constantTimeEquals(String first, String second) {
+        if (first == null || second == null) return false;
+        return MessageDigest.isEqual(
+            first.getBytes(StandardCharsets.US_ASCII),
+            second.getBytes(StandardCharsets.US_ASCII)
+        );
     }
 }

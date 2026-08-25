@@ -17,14 +17,13 @@ public class UserSyncServiceImpl implements UserSyncService {
     public void markChanged(Long userId) {
         Instant now = Instant.now();
         int updated = jdbcTemplate.update(
-            "UPDATE user_sync_state SET status = 'synced', last_synced_at = ?, " +
-                "server_revision = server_revision + 1 WHERE user_id = ?",
+            "UPDATE user_sync_state SET status = 'synced', last_synced_at = ? WHERE user_id = ?",
             Timestamp.from(now), userId
         );
         if (updated == 0) {
             jdbcTemplate.update(
                 "INSERT INTO user_sync_state (user_id, status, last_synced_at, server_revision) " +
-                    "VALUES (?, 'synced', ?, 1)",
+                    "VALUES (?, 'synced', ?, 0)",
                 userId, Timestamp.from(now)
             );
         }

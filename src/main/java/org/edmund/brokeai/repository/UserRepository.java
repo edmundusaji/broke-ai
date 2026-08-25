@@ -18,6 +18,8 @@ import java.util.List;
 public interface UserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByUsername(String username);
 
+    Optional<AppUser> findByClientGuestIdHash(String clientGuestIdHash);
+
     boolean existsByUsername(String username);
 
     boolean existsByUsernameAndIdNot(String username, Long id);

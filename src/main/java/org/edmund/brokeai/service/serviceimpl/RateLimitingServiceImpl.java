@@ -16,6 +16,7 @@ public class RateLimitingServiceImpl implements RateLimitingService {
     private final ConcurrentMap<Long, Bucket> automaticCaptureBuckets = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> authBuckets = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> sensitiveBuckets = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, Bucket> syncBuckets = new ConcurrentHashMap<>();
 
     @Override
     public boolean tryConsume(Long userId) {
@@ -36,6 +37,12 @@ public class RateLimitingServiceImpl implements RateLimitingService {
     @Override
     public boolean tryConsumeSensitive(String clientIp, String operation) {
         return sensitiveBuckets.computeIfAbsent(clientIp + ":" + operation, ignored -> newAuthBucket()).tryConsume(1);
+    }
+
+    @Override
+    public boolean tryConsumeSync(Long userId, int cost) {
+        if (cost < 1) return false;
+        return syncBuckets.computeIfAbsent(userId, ignored -> newSyncBucket()).tryConsume(cost);
     }
 
     private Bucket newAiBucket() {
@@ -62,6 +69,14 @@ public class RateLimitingServiceImpl implements RateLimitingService {
         Bandwidth limit = Bandwidth.builder()
             .capacity(30)
             .refillGreedy(30, Duration.ofMinutes(1))
+            .build();
+        return Bucket.builder().addLimit(limit).build();
+    }
+
+    private Bucket newSyncBucket() {
+        Bandwidth limit = Bandwidth.builder()
+            .capacity(300)
+            .refillGreedy(300, Duration.ofMinutes(1))
             .build();
         return Bucket.builder().addLimit(limit).build();
     }

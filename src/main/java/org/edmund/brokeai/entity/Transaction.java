@@ -16,6 +16,9 @@ public class Transaction {
     @GeneratedValue (strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "client_transaction_id", nullable = false, updatable = false)
+    private UUID clientTransactionId = UUID.randomUUID();
+
     @Column(name = "transaction_date")
     private LocalDateTime date;
 

@@ -28,8 +28,8 @@ public class UserSession {
     @JoinColumn(name = "user_id", nullable = false)
     private AppUser user;
 
-    @Column(name = "refresh_token_hash", nullable = false)
-    private String refreshTokenHash;
+    @Column(name = "access_token_hash", nullable = false)
+    private String accessTokenHash;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "device_id")

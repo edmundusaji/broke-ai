@@ -143,7 +143,7 @@ class JwtAuthenticationFilterTest {
     }
 
     private void stubSession(String token, AppUser user) {
-        when(userSessionRepository.findByRefreshTokenHash(anyString())).thenReturn(Optional.empty());
+        when(userSessionRepository.findByAccessTokenHash(anyString())).thenReturn(Optional.empty());
         when(jwtService.extractExpiration(token)).thenReturn(Instant.now().plusSeconds(3600));
         when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> {
             UserSession session = invocation.getArgument(0);
