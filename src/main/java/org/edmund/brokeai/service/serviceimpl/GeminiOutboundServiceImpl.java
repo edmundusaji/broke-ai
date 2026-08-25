@@ -69,11 +69,24 @@ public class GeminiOutboundServiceImpl implements GeminiOutboundService {
                 lastRetryableFailure = exception;
                 log.warn("Could not reach Gemini model {}; trying the next configured model", model);
             } catch (RestClientException exception) {
-                log.error("Gemini request failed on model {} ({})", model, exception.getClass().getSimpleName());
+                log.error(
+                        "Gemini request failed on model {} ({} caused by {})",
+                        model,
+                        exception.getClass().getSimpleName(),
+                        rootCauseType(exception)
+                );
                 throw new AiProcessingException("Gemini request failed on model " + model, exception);
             }
         }
 
         throw new AiProcessingException("All configured Gemini models failed", lastRetryableFailure);
+    }
+
+    private String rootCauseType(Throwable throwable) {
+        Throwable rootCause = throwable;
+        while (rootCause.getCause() != null && rootCause.getCause() != rootCause) {
+            rootCause = rootCause.getCause();
+        }
+        return rootCause.getClass().getSimpleName();
     }
 }
