@@ -3,6 +3,7 @@ package org.edmund.brokeai.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.edmund.brokeai.dto.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,7 +42,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorEnvelope> handleApiException(ApiException exception) {
-        return ResponseEntity.status(exception.getStatus()).body(error(
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(exception.getStatus());
+        if (exception.getRetryAfterSeconds() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, exception.getRetryAfterSeconds().toString());
+        }
+        return response.body(error(
             exception.getCode(),
             exception.getMessage(),
             exception.getField()

@@ -6,6 +6,7 @@ import org.edmund.brokeai.entity.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.Instant;
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
@@ -64,6 +66,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     long countByUserIdAndDeletedAtIsNull(Long userId);
 
     Optional<Transaction> findByUserIdAndCaptureIdAndDeletedAtIsNull(Long userId, UUID captureId);
+
+    Optional<Transaction> findByUserIdAndClientTransactionId(Long userId, UUID clientTransactionId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId AND t.clientTransactionId = :clientTransactionId")
+    Optional<Transaction> findByClientTransactionIdForUpdate(
+        @Param("userId") Long userId,
+        @Param("clientTransactionId") UUID clientTransactionId
+    );
 
     @Query("SELECT MIN(t.date) FROM Transaction t WHERE t.user.id = :userId AND t.deletedAt IS NULL")
     Optional<LocalDateTime> findFirstTransactionAt(@Param("userId") Long userId);

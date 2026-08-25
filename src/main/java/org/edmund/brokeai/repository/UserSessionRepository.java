@@ -17,7 +17,7 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
 
     Optional<UserSession> findByIdAndUserId(UUID id, Long userId);
 
-    Optional<UserSession> findByRefreshTokenHash(String refreshTokenHash);
+    Optional<UserSession> findByAccessTokenHash(String accessTokenHash);
 
     @Modifying
     @Query("UPDATE UserSession s SET s.revokedAt = :now WHERE s.user.id = :userId AND s.revokedAt IS NULL")

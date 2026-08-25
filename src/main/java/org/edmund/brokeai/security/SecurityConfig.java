@@ -58,6 +58,7 @@ public class SecurityConfig {
                     "/api/v1/expense/notification"
                 ).hasAnyRole("GUEST", "USER")
                 .requestMatchers("/api/v1/expense/**").hasAnyRole("GUEST", "USER")
+                .requestMatchers("/api/v1/sync/**").hasAnyRole("GUEST", "USER")
                 .requestMatchers(
                     "/api/v1/me/data-exports",
                     "/api/v1/me/data-exports/**",

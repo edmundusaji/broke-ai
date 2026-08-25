@@ -81,10 +81,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private UserSession resolveSession(String token, AppUser user, HttpServletRequest request) {
         String tokenHash = sha256(token);
-        return userSessionRepository.findByRefreshTokenHash(tokenHash).orElseGet(() -> {
+        return userSessionRepository.findByAccessTokenHash(tokenHash).orElseGet(() -> {
             UserSession session = new UserSession();
             session.setUser(user);
-            session.setRefreshTokenHash(tokenHash);
+            session.setAccessTokenHash(tokenHash);
             session.setIpHash(sha256(request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr()));
             session.setUserAgent(truncate(request.getHeader("User-Agent"), 255));
             session.setLastActiveAt(Instant.now());

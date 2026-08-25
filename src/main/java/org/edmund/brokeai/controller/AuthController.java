@@ -10,6 +10,7 @@ import org.edmund.brokeai.dto.UpgradeGuestRequest;
 import org.edmund.brokeai.dto.CurrentUserResponse;
 import org.edmund.brokeai.dto.MergeGuestRequest;
 import org.edmund.brokeai.dto.MergeGuestResponse;
+import org.edmund.brokeai.dto.GuestBootstrapRequest;
 import org.edmund.brokeai.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,8 +38,12 @@ public class AuthController {
     }
 
     @PostMapping("/guest-login")
-    public ResponseEntity<LoginResponse> guestLogin() {
-        return ResponseEntity.ok(authService.guestLogin());
+    public ResponseEntity<LoginResponse> guestLogin(
+        @Valid @RequestBody(required = false) GuestBootstrapRequest request
+    ) {
+        return ResponseEntity.ok(request == null
+            ? authService.guestLogin()
+            : authService.guestLogin(request));
     }
 
     @PostMapping("/upgrade-guest")

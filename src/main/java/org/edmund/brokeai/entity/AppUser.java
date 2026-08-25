@@ -11,6 +11,7 @@ import jakarta.persistence.Version;
 import lombok.Data;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -20,6 +21,9 @@ public class AppUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "account_id", nullable = false, unique = true, updatable = false)
+    private UUID accountId = UUID.randomUUID();
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
@@ -70,4 +74,12 @@ public class AppUser {
 
     @Column(name = "guest_retention_hold", nullable = false, columnDefinition = "boolean default false")
     private Boolean guestRetentionHold = false;
+
+    @JsonIgnore
+    @Column(name = "client_guest_id_hash", unique = true, updatable = false)
+    private String clientGuestIdHash;
+
+    @JsonIgnore
+    @Column(name = "guest_installation_credential_hash", updatable = false)
+    private String guestInstallationCredentialHash;
 }

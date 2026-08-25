@@ -6,4 +6,6 @@ public interface RateLimitingService {
     boolean tryConsumeAuth(String clientIp);
 
     boolean tryConsumeSensitive(String clientIp, String operation);
+
+    boolean tryConsumeSync(Long userId, int cost);
 }
