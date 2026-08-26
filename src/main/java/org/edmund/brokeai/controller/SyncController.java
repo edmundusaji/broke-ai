@@ -4,10 +4,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.edmund.brokeai.config.OfflineSyncProperties;
 import org.edmund.brokeai.dto.SyncApi;
 import org.edmund.brokeai.exception.ApiException;
 import org.edmund.brokeai.service.SyncService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SyncController {
     private final SyncService syncService;
-
-    @Value("${app.offline-sync.enabled:false}")
-    private boolean syncEnabled;
+    private final OfflineSyncProperties offlineSyncProperties;
 
     @PostMapping("/push")
     @Operation(summary = "Push an ordered batch of idempotent local transaction mutations")
@@ -45,7 +43,7 @@ public class SyncController {
     }
 
     private void requireSyncEnabled() {
-        if (!syncEnabled) {
+        if (!offlineSyncProperties.isEnabled()) {
             throw new ApiException(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "SYNC_FEATURE_DISABLED",
