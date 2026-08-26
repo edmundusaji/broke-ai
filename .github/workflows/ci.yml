@@ -52,5 +52,43 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/springboot-api:latest
             docker stop backend-api || true
             docker rm backend-api || true
-            docker run -d -p 8080:8080 --env-file ~/backend.env --name backend-api ${{ secrets.DOCKER_USERNAME }}/springboot-api:latest
+            docker run -d -p 8080:8080 \
+              --env-file ~/backend.env \
+              -e APP_OFFLINE_SYNC_ENABLED=true \
+              -e APP_OFFLINE_SYNC_REQUIRE_ENABLED=true \
+              --name backend-api \
+              ${{ secrets.DOCKER_USERNAME }}/springboot-api:latest
+
+            LOGIN_RESPONSE=""
+            for attempt in $(seq 1 30); do
+              if LOGIN_RESPONSE=$(curl --fail --silent --show-error \
+                -X POST http://127.0.0.1:8080/api/v1/auth/guest-login); then
+                break
+              fi
+              sleep 2
+            done
+
+            ACCESS_TOKEN=$(printf '%s' "$LOGIN_RESPONSE" \
+              | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+            if [ -z "$ACCESS_TOKEN" ]; then
+              echo "Guest login smoke test did not return an access token."
+              exit 1
+            fi
+
+            PULL_STATUS=$(curl --silent --show-error \
+              --output /tmp/offline-sync-pull.json \
+              --write-out '%{http_code}' \
+              -H "Authorization: Bearer $ACCESS_TOKEN" \
+              http://127.0.0.1:8080/api/v1/sync/pull)
+            if [ "$PULL_STATUS" != "200" ]; then
+              echo "Offline sync pull smoke test failed with HTTP $PULL_STATUS."
+              cat /tmp/offline-sync-pull.json
+              exit 1
+            fi
+
+            if grep -q 'SYNC_FEATURE_DISABLED' /tmp/offline-sync-pull.json; then
+              echo "Offline sync is disabled after deployment."
+              exit 1
+            fi
+
             docker image prune -f
